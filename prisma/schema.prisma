@@ -1,0 +1,35 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Dispatch {
+  id             String        @id @default(uuid())
+  dispatchNumber String?
+  fileUrl        String?
+  type           String
+  date           DateTime      @default(now())
+  
+  transformers   Transformer[]
+  
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+model Transformer {
+  id           String    @id @default(uuid())
+  serialNumber String
+  capacity     String?
+  model        String?
+  note         String?
+  
+  dispatchId   String
+  dispatch     Dispatch  @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
