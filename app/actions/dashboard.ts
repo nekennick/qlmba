@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db"
 
-export async function getDashboardStats() {
+export async function getDashboardStats(range?: { from?: Date, to?: Date }) {
     try {
         const importCount = await db.transformer.count({
             where: {
@@ -20,10 +20,35 @@ export async function getDashboardStats() {
             }
         })
 
+        // Filter Recent Transactions
+        const whereClause: any = {}
+        if (range?.from || range?.to) {
+            whereClause.dispatch = {
+                date: {
+                    gte: range.from, // If undefined, prisma ignores gte/lte if structured correctly, but simpler to check
+                    lte: range.to
+                }
+            }
+            if (range.from && !range.to) {
+                whereClause.dispatch = { date: { gte: range.from } }
+            }
+            if (!range.from && range.to) {
+                whereClause.dispatch = { date: { lte: range.to } }
+            }
+            if (range.from && range.to) {
+                whereClause.dispatch = { date: { gte: range.from, lte: range.to } }
+            }
+        }
+
         const recentTransformers = await db.transformer.findMany({
-            take: 20,
+            take: range?.from || range?.to ? 1000 : 20, // Increase limit if filtering
+            where: whereClause,
             orderBy: {
-                createdAt: 'desc'
+                // If filtering by date, maybe order by dispatch date?
+                // But createdAt is fine for "recent within range"
+                dispatch: {
+                    date: 'desc'
+                }
             },
             include: {
                 dispatch: true
