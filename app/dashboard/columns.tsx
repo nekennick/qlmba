@@ -1,7 +1,11 @@
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown, MoreHorizontal, Trash2 } from "lucide-react"
+import { ArrowUpDown, MoreHorizontal, Trash2, Pencil } from "lucide-react"
+import React from "react"
+import { EditTransformerDialog } from "@/components/dashboard/edit-transformer-dialog"
+
+import { DataTableFacetedFilter } from "@/components/ui/data-table-faceted-filter"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -30,25 +34,58 @@ export const columns: ColumnDef<Transformer>[] = [
     {
         accessorKey: "date",
         header: ({ column }) => {
+            const uniqueValues = Array.from(column.getFacetedUniqueValues().keys())
+                .map((date) => new Date(date))
+                .sort((a, b) => b.getTime() - a.getTime())
+                .map((date) => date.toLocaleDateString("vi-VN"))
+
+            // Deduplicate after formatting
+            const options = Array.from(new Set(uniqueValues)).map(dateStr => ({
+                label: dateStr,
+                value: dateStr
+            }))
+
             return (
-                <Button
-                    variant="ghost"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="px-0 hover:bg-transparent"
-                >
-                    Ngày
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
+                <div className="flex flex-col gap-2 items-start py-2">
+                    <Button
+                        variant="ghost"
+                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                        className="px-0 hover:bg-transparent font-semibold"
+                    >
+                        Ngày
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                    <DataTableFacetedFilter title="Ngày" column={column} options={options} />
+                </div>
             )
         },
         cell: ({ row }) => {
             const date = new Date(row.getValue("date"))
             return <div>{date.toLocaleDateString("vi-VN")}</div>
         },
+        filterFn: (row, id, value) => {
+            const date = new Date(row.getValue(id))
+            const formatted = date.toLocaleDateString("vi-VN")
+            return value.includes(formatted)
+        },
     },
     {
         accessorKey: "type",
-        header: "Loại GD",
+        header: ({ column }) => {
+            return (
+                <div className="flex flex-col gap-2 items-start py-2">
+                    <div className="font-semibold px-0 h-9 flex items-center">Loại GD</div>
+                    <DataTableFacetedFilter
+                        title="Loại"
+                        column={column}
+                        options={[
+                            { label: "NHẬN", value: "IMPORT" },
+                            { label: "TRẢ", value: "EXPORT" },
+                        ]}
+                    />
+                </div>
+            )
+        },
         cell: ({ row }) => {
             const type = row.getValue("type") as string
             return (
@@ -64,10 +101,22 @@ export const columns: ColumnDef<Transformer>[] = [
                 </Badge>
             )
         },
+        filterFn: (row, id, value) => {
+            return value.includes(row.getValue(id))
+        },
     },
     {
         accessorKey: "dispatchNumber",
         header: ({ column }) => {
+            // Values might be null, handle that
+            const uniqueValues = Array.from(column.getFacetedUniqueValues().keys())
+                .filter(Boolean) as string[]
+
+            const options = uniqueValues.map(val => ({
+                label: val,
+                value: val
+            }))
+
             return (
                 <div className="flex flex-col gap-2 items-start py-2">
                     <Button
@@ -78,16 +127,12 @@ export const columns: ColumnDef<Transformer>[] = [
                         Số Công Văn
                         <ArrowUpDown className="ml-2 h-3 w-3" />
                     </Button>
-                    <Input
-                        placeholder="Lọc số CV..."
-                        value={(column.getFilterValue() as string) ?? ""}
-                        onChange={(event) =>
-                            column.setFilterValue(event.target.value)
-                        }
-                        className="h-8 w-[120px]"
-                    />
+                    <DataTableFacetedFilter title="Số CV" column={column} options={options} />
                 </div>
             )
+        },
+        filterFn: (row, id, value) => {
+            return value.includes(row.getValue(id))
         },
     },
     {
@@ -117,11 +162,61 @@ export const columns: ColumnDef<Transformer>[] = [
     },
     {
         accessorKey: "capacity",
-        header: "Dung Lượng",
+        header: ({ column }) => {
+            const uniqueValues = Array.from(column.getFacetedUniqueValues().keys())
+                .filter(Boolean) as string[]
+
+            const options = uniqueValues.map(val => ({
+                label: val,
+                value: val
+            }))
+
+            return (
+                <div className="flex flex-col gap-2 items-start py-2">
+                    <Button
+                        variant="ghost"
+                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                        className="px-0 h-auto font-semibold hover:bg-transparent"
+                    >
+                        Dung Lượng
+                        <ArrowUpDown className="ml-2 h-3 w-3" />
+                    </Button>
+                    <DataTableFacetedFilter title="Dung lượng" column={column} options={options} />
+                </div>
+            )
+        },
+        filterFn: (row, id, value) => {
+            return value.includes(row.getValue(id))
+        },
     },
     {
         accessorKey: "model",
-        header: "Loại máy",
+        header: ({ column }) => {
+            const uniqueValues = Array.from(column.getFacetedUniqueValues().keys())
+                .filter(Boolean) as string[]
+
+            const options = uniqueValues.map(val => ({
+                label: val,
+                value: val
+            }))
+
+            return (
+                <div className="flex flex-col gap-2 items-start py-2">
+                    <Button
+                        variant="ghost"
+                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                        className="px-0 h-auto font-semibold hover:bg-transparent"
+                    >
+                        Loại máy
+                        <ArrowUpDown className="ml-2 h-3 w-3" />
+                    </Button>
+                    <DataTableFacetedFilter title="Loại máy" column={column} options={options} />
+                </div>
+            )
+        },
+        filterFn: (row, id, value) => {
+            return value.includes(row.getValue(id))
+        },
     },
     {
         accessorKey: "note",
@@ -161,13 +256,7 @@ export const columns: ColumnDef<Transformer>[] = [
         header: () => <div className="text-right">Thao tác</div>,
         cell: ({ row }) => {
             const transformer = row.original
-
-            // We need a way to refresh the page/data after delete. 
-            // Ideally we pass a function or context, but for simplicity we can use the window.location.reload() 
-            // or rely on the parent component handling state if we pass an action up.
-            // However, since we defined columns here, passing props is tricky.
-            // A better way is to define the columns inside the component or use a wrapper.
-            // For now, I will define the action here using the server action.
+            const [editOpen, setEditOpen] = React.useState(false)
 
             const handleDelete = async () => {
                 if (!confirm(`Xác nhận xóa công văn "${transformer.dispatchNumber || 'N/A'}"?`)) return
@@ -175,7 +264,6 @@ export const columns: ColumnDef<Transformer>[] = [
                 const result = await deleteDispatch(transformer.dispatchId)
                 if (result.success) {
                     toast.success("Đã xóa giao dịch")
-                    // This is a bit dirty but effective to refresh server components/client state
                     window.location.reload()
                 } else {
                     toast.error(result.error || "Không thể xóa")
@@ -183,7 +271,21 @@ export const columns: ColumnDef<Transformer>[] = [
             }
 
             return (
-                <div className="text-right">
+                <div className="flex justify-end gap-2">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                        onClick={() => setEditOpen(true)}
+                    >
+                        <Pencil className="h-4 w-4" />
+                    </Button>
+                    <EditTransformerDialog
+                        transformer={transformer}
+                        open={editOpen}
+                        onOpenChange={setEditOpen}
+                    />
+
                     <Button
                         variant="ghost"
                         size="icon"
