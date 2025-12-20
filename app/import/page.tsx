@@ -187,7 +187,7 @@ export default function ImportPage() {
 
                         <Input
                             type="file"
-                            accept="application/pdf"
+                            accept="application/pdf,image/jpeg,image/png"
                             className="hidden"
                             id="file-upload-import"
                             onChange={handleFileChange}
@@ -195,7 +195,7 @@ export default function ImportPage() {
                         <Button asChild variant="outline" size="sm">
                             <label htmlFor="file-upload-import" className="cursor-pointer flex items-center gap-2">
                                 <Upload className="w-4 h-4" />
-                                <span>Upload PDF</span>
+                                <span>Upload File</span>
                             </label>
                         </Button>
                     </div>
@@ -203,20 +203,30 @@ export default function ImportPage() {
 
                 <div className="flex-1 overflow-hidden relative bg-muted/50 dark:bg-muted/10">
                     {pdfFile ? (
-                        <object
-                            data={pdfFile}
-                            type="application/pdf"
-                            className="w-full h-full"
-                        >
-                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                                <p>Trình duyệt không hỗ trợ xem trực tiếp.</p>
-                            </div>
-                        </object>
+                        <div className="w-full h-full flex items-center justify-center overflow-auto p-4">
+                            {pdfFile.toLowerCase().match(/\.(jpg|jpeg|png|webp|gif)$/) || (selectedFile?.type.startsWith('image/')) ? (
+                                <img
+                                    src={pdfFile}
+                                    alt="Preview"
+                                    className="max-w-full max-h-full object-contain shadow-md"
+                                />
+                            ) : (
+                                <object
+                                    data={pdfFile}
+                                    type="application/pdf"
+                                    className="w-full h-full"
+                                >
+                                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                                        <p>Trình duyệt không hỗ trợ xem trực tiếp.</p>
+                                    </div>
+                                </object>
+                            )}
+                        </div>
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                             <div className="text-center">
                                 <Upload className="w-12 h-12 mb-2 opacity-50 mx-auto" />
-                                <p>Upload PDF hoặc chọn công văn cũ <br /> để xem thông tin</p>
+                                <p>Upload PDF/Ảnh hoặc chọn công văn cũ <br /> để xem thông tin</p>
                             </div>
                         </div>
                     )}
