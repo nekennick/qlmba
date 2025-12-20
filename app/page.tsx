@@ -7,11 +7,13 @@ import { useEffect, useState } from "react"
 import { getDashboardStats } from "@/app/actions/dashboard"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowUpCircle, ArrowDownCircle, Package, CalendarIcon } from "lucide-react"
+import { ArrowUpCircle, ArrowDownCircle, Package, CalendarIcon, Printer } from "lucide-react"
 import { DataTable } from "@/components/ui/data-table"
 import { columns, Transformer } from "@/app/dashboard/columns"
 import { NotificationBell } from "@/components/dashboard/notification-bell"
 import { Calendar } from "@/components/ui/calendar"
+import { ReportToolbar } from "@/components/dashboard/report-toolbar"
+import { toast } from "sonner"
 import {
   Popover,
   PopoverContent,
@@ -37,6 +39,19 @@ export default function DashboardPage() {
       setTransformers(data.recentTransformers as Transformer[] || [])
     }
     setLoading(false)
+  }
+
+  const handleExportReport = () => {
+    if (!date?.from) {
+      toast.error("Vui lòng chọn ngày để xuất báo cáo")
+      return
+    }
+
+    // Use the 'from' date for the daily report
+    const reportDate = date.from
+    const unitName = "Đội Quản lý điện Thanh Bình"
+    const url = `/report?date=${reportDate.toISOString()}&unit=${encodeURIComponent(unitName)}`
+    window.open(url, '_blank')
   }
 
   useEffect(() => {
@@ -112,7 +127,7 @@ export default function DashboardPage() {
               <CardTitle>Giao dịch gần đây</CardTitle>
               <CardDescription>Danh sách máy biến áp vừa được nhận hoặc trả.</CardDescription>
             </div>
-            <div className={cn("grid gap-2")}>
+            <div className={cn("grid gap-2 flex flex-row items-center")}>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -156,7 +171,11 @@ export default function DashboardPage() {
             {loading ? (
               <div className="text-center py-10 text-gray-500">Đang tải dữ liệu...</div>
             ) : (
-              <DataTable columns={columns} data={transformers} />
+              <DataTable
+                columns={columns}
+                data={transformers}
+                extraToolbarActions={(table) => <ReportToolbar table={table} />}
+              />
             )}
           </CardContent>
         </Card>

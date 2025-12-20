@@ -37,11 +37,13 @@ import {
 interface DataTableProps<TData, TValue> {
     columns: ColumnDef<TData, TValue>[]
     data: TData[]
+    extraToolbarActions?: (table: any) => React.ReactNode
 }
 
 export function DataTable<TData, TValue>({
     columns,
     data,
+    extraToolbarActions,
 }: DataTableProps<TData, TValue>) {
     const [sorting, setSorting] = React.useState<SortingState>([])
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -138,9 +140,10 @@ export function DataTable<TData, TValue>({
                         </SelectContent>
                     </Select>
                 </div>
-                <div className="flex-1 text-sm text-muted-foreground">
+                <div className="flex-1 text-sm text-muted-foreground mr-4">
                     {table.getFilteredRowModel().rows.length} kết quả.
                 </div>
+                {extraToolbarActions && extraToolbarActions(table)}
                 <Button
                     variant="outline"
                     size="sm"
