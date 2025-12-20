@@ -43,7 +43,7 @@ export function NotificationBell({ unreturnedCount }: NotificationBellProps) {
                             <div className="space-y-1">
                                 <p className="text-sm font-medium">Cảnh báo tồn kho</p>
                                 <p className="text-xs text-orange-700">
-                                    Hiện có <span className="font-bold">{unreturnedCount} MBA</span> đã nhận nhưng chưa trả lại. Vui lòng kiểm tra.
+                                    Hiện có <span className="font-bold">{unreturnedCount} MBA</span> đã nhận nhưng chưa trả lại. Lưu ý nhé.
                                 </p>
                             </div>
                         </div>

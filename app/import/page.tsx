@@ -4,7 +4,8 @@ import { useState } from "react"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Upload, Plus, Trash2, Save, Search, FileText } from "lucide-react"
+import { Upload, Plus, Trash2, Save, Search, FileText, ArrowLeft } from "lucide-react"
+import Link from "next/link"
 import { toast } from "sonner"
 import { createImportDispatch, searchDispatches } from "@/app/actions/import-dispatch"
 import { uploadFile } from "@/app/actions/upload"
@@ -135,11 +136,18 @@ export default function ImportPage() {
     }
 
     return (
-        <div className="flex h-screen overflow-hidden">
+        <div className="flex h-screen overflow-hidden bg-background">
             {/* LEFT PANE: PDF & Info */}
-            <div className="w-1/2 h-full border-r bg-gray-100 flex flex-col">
-                <div className="p-4 border-b bg-white shadow-sm flex items-center justify-between h-16">
-                    <h2 className="font-semibold text-lg">Văn bản / Nguồn</h2>
+            <div className="w-1/2 h-full border-r bg-muted/30 flex flex-col">
+                <div className="p-4 border-b bg-card shadow-sm flex items-center justify-between h-16">
+                    <div className="flex items-center gap-2">
+                        <Button asChild variant="ghost" size="icon" className="h-8 w-8">
+                            <Link href="/">
+                                <ArrowLeft className="h-4 w-4" />
+                            </Link>
+                        </Button>
+                        <h2 className="font-semibold text-lg">Văn bản / Nguồn</h2>
+                    </div>
                     <div className="flex gap-2">
                         <Dialog open={isSearchOpen} onOpenChange={setIsSearchOpen}>
                             <DialogTrigger asChild>
@@ -162,16 +170,16 @@ export default function ImportPage() {
                                 </div>
                                 <div className="mt-4 space-y-2">
                                     {searchResults.map(result => (
-                                        <div key={result.id} className="p-3 border rounded hover:bg-slate-50 cursor-pointer flex justify-between items-center" onClick={() => handleSelectDispatch(result)}>
+                                        <div key={result.id} className="p-3 border rounded hover:bg-accent cursor-pointer flex justify-between items-center" onClick={() => handleSelectDispatch(result)}>
                                             <div>
                                                 <div className="font-medium">{result.dispatchNumber}</div>
-                                                <div className="text-xs text-gray-500">{new Date(result.date).toLocaleDateString("vi-VN")} - {result.transformers.length} máy</div>
+                                                <div className="text-xs text-muted-foreground">{new Date(result.date).toLocaleDateString("vi-VN")} - {result.transformers.length} máy</div>
                                             </div>
-                                            <FileText className="w-4 h-4 text-gray-400" />
+                                            <FileText className="w-4 h-4 text-muted-foreground" />
                                         </div>
                                     ))}
                                     {searchResults.length === 0 && searchQuery && (
-                                        <div className="text-center text-gray-500 py-4">Không tìm thấy kết quả</div>
+                                        <div className="text-center text-muted-foreground py-4">Không tìm thấy kết quả</div>
                                     )}
                                 </div>
                             </DialogContent>
@@ -193,19 +201,19 @@ export default function ImportPage() {
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-hidden relative bg-gray-200">
+                <div className="flex-1 overflow-hidden relative bg-muted/50 dark:bg-muted/10">
                     {pdfFile ? (
                         <object
                             data={pdfFile}
                             type="application/pdf"
                             className="w-full h-full"
                         >
-                            <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                                 <p>Trình duyệt không hỗ trợ xem trực tiếp.</p>
                             </div>
                         </object>
                     ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                             <div className="text-center">
                                 <Upload className="w-12 h-12 mb-2 opacity-50 mx-auto" />
                                 <p>Upload PDF hoặc chọn công văn cũ <br /> để xem thông tin</p>
@@ -216,10 +224,10 @@ export default function ImportPage() {
             </div>
 
             {/* RIGHT PANE: Form */}
-            <div className="w-1/2 h-full flex flex-col bg-white">
-                <div className="p-4 border-b h-16 flex items-center justify-between bg-green-50/50">
-                    <h2 className="font-semibold text-lg text-green-700">Nhập số liệu MBA nhận</h2>
-                    <Button onClick={form.handleSubmit(onSubmit)} className="gap-2 bg-green-600 hover:bg-green-700">
+            <div className="w-1/2 h-full flex flex-col bg-background">
+                <div className="p-4 border-b h-16 flex items-center justify-between bg-green-50/50 dark:bg-green-900/10">
+                    <h2 className="font-semibold text-lg text-green-700 dark:text-green-400">Nhập số liệu MBA nhận</h2>
+                    <Button onClick={form.handleSubmit(onSubmit)} className="gap-2 bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 dark:text-white">
                         <Save className="w-4 h-4" /> Lưu thông tin
                     </Button>
                 </div>
@@ -229,8 +237,8 @@ export default function ImportPage() {
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pb-20">
 
                             {/* Thông tin chung */}
-                            <Card>
-                                <CardHeader className="py-3 bg-slate-50">
+                            <Card className="bg-card">
+                                <CardHeader className="py-3 bg-muted/40 border-b">
                                     <CardTitle className="text-sm font-medium">Thông tin công văn nhập</CardTitle>
                                 </CardHeader>
                                 <CardContent className="grid grid-cols-2 gap-4 pt-4">
@@ -264,8 +272,8 @@ export default function ImportPage() {
                             </Card>
 
                             {/* Danh sách máy */}
-                            <Card>
-                                <CardHeader className="py-3 bg-slate-50 flex flex-row items-center justify-between space-y-0">
+                            <Card className="bg-card">
+                                <CardHeader className="py-3 bg-muted/40 border-b flex flex-row items-center justify-between space-y-0">
                                     <CardTitle className="text-sm font-medium">Danh sách Máy biến áp ({fields.length})</CardTitle>
                                     <Button
                                         type="button"
@@ -279,8 +287,8 @@ export default function ImportPage() {
                                 </CardHeader>
                                 <CardContent className="pt-4 space-y-2">
                                     {fields.map((field, index) => (
-                                        <div key={field.id} className="flex gap-3 items-start p-3 border rounded-md bg-slate-50/50 hover:bg-slate-50 transition-colors">
-                                            <div className="w-8 pt-2 text-center text-sm text-gray-400 font-medium">{index + 1}</div>
+                                        <div key={field.id} className="flex gap-3 items-start p-3 border rounded-md bg-muted/20 hover:bg-muted/40 transition-colors">
+                                            <div className="w-8 pt-2 text-center text-sm text-muted-foreground font-medium">{index + 1}</div>
 
                                             <FormField
                                                 control={form.control}
@@ -357,7 +365,7 @@ export default function ImportPage() {
                                                 type="button"
                                                 variant="ghost"
                                                 size="icon"
-                                                className="text-red-400 hover:text-red-500 hover:bg-red-50"
+                                                className="text-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                                                 onClick={() => remove(index)}
                                             >
                                                 <Trash2 className="w-4 h-4" />
@@ -369,7 +377,7 @@ export default function ImportPage() {
                                     <Button
                                         type="button"
                                         variant="outline"
-                                        className="w-full border-dashed text-gray-500 hover:text-primary hover:border-primary"
+                                        className="w-full border-dashed text-muted-foreground hover:text-primary hover:border-primary"
                                         onClick={() => append({ serialNumber: "", capacity: "", model: "" })}
                                     >
                                         <Plus className="w-4 h-4 mr-2" /> Thêm máy tiếp theo

@@ -4,7 +4,8 @@ import { useState, useEffect } from "react"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Upload, Plus, Trash2, Save, Check, ChevronsUpDown } from "lucide-react"
+import { Upload, Plus, Trash2, Save, Check, ChevronsUpDown, ArrowLeft } from "lucide-react"
+import Link from "next/link"
 import { toast } from "sonner"
 import { createExportDispatch } from "@/app/actions/export-dispatch"
 import { getImportDispatches } from "@/app/actions/get-dispatches"
@@ -114,11 +115,18 @@ export default function ExportPage() {
     }
 
     return (
-        <div className="flex h-screen overflow-hidden">
+        <div className="flex h-screen overflow-hidden bg-background">
             {/* LEFT PANE: PDF Viewer */}
-            <div className="w-1/2 h-full border-r bg-gray-100 flex flex-col">
-                <div className="p-4 border-b bg-white shadow-sm flex items-center justify-between h-16">
-                    <h2 className="font-semibold text-lg">Văn bản đính kèm</h2>
+            <div className="w-1/2 h-full border-r bg-muted/30 flex flex-col">
+                <div className="p-4 border-b bg-card shadow-sm flex items-center justify-between h-16">
+                    <div className="flex items-center gap-2">
+                        <Button asChild variant="ghost" size="icon" className="h-8 w-8">
+                            <Link href="/">
+                                <ArrowLeft className="h-4 w-4" />
+                            </Link>
+                        </Button>
+                        <h2 className="font-semibold text-lg">Văn bản đính kèm</h2>
+                    </div>
                     <div>
                         <Input
                             type="file"
@@ -136,19 +144,19 @@ export default function ExportPage() {
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-hidden relative bg-gray-200">
+                <div className="flex-1 overflow-hidden relative bg-muted/50 dark:bg-muted/10">
                     {pdfFile ? (
                         <object
                             data={pdfFile}
                             type="application/pdf"
                             className="w-full h-full"
                         >
-                            <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                                 <p>Trình duyệt không hỗ trợ xem trực tiếp.</p>
                             </div>
                         </object>
                     ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                             <Upload className="w-12 h-12 mb-2 opacity-50" />
                             <p>Chưa có file nào được chọn</p>
                         </div>
@@ -157,7 +165,7 @@ export default function ExportPage() {
             </div>
 
             {/* RIGHT PANE: Form */}
-            <div className="w-1/2 h-full flex flex-col bg-white">
+            <div className="w-1/2 h-full flex flex-col bg-background">
                 <div className="p-4 border-b h-16 flex items-center justify-between">
                     <h2 className="font-semibold text-lg text-primary">Nhập số liệu MBA trả</h2>
                     <Button onClick={form.handleSubmit(onSubmit)} className="gap-2">
@@ -170,8 +178,8 @@ export default function ExportPage() {
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pb-20">
 
                             {/* Thông tin chung */}
-                            <Card>
-                                <CardHeader className="py-3 bg-slate-50">
+                            <Card className="bg-card">
+                                <CardHeader className="py-3 bg-muted/40 border-b">
                                     <CardTitle className="text-sm font-medium">Thông tin chung</CardTitle>
                                 </CardHeader>
                                 <CardContent className="grid grid-cols-2 gap-4 pt-4">
@@ -246,8 +254,8 @@ export default function ExportPage() {
                             </Card>
 
                             {/* Danh sách máy */}
-                            <Card>
-                                <CardHeader className="py-3 bg-slate-50 flex flex-row items-center justify-between space-y-0">
+                            <Card className="bg-card">
+                                <CardHeader className="py-3 bg-muted/40 border-b flex flex-row items-center justify-between space-y-0">
                                     <CardTitle className="text-sm font-medium">Danh sách Máy biến áp ({fields.length})</CardTitle>
                                     <Button
                                         type="button"
@@ -261,8 +269,8 @@ export default function ExportPage() {
                                 </CardHeader>
                                 <CardContent className="pt-4 space-y-2">
                                     {fields.map((field, index) => (
-                                        <div key={field.id} className="flex gap-3 items-start p-3 border rounded-md bg-slate-50/50 hover:bg-slate-50 transition-colors">
-                                            <div className="w-8 pt-2 text-center text-sm text-gray-400 font-medium">{index + 1}</div>
+                                        <div key={field.id} className="flex gap-3 items-start p-3 border rounded-md bg-muted/20 hover:bg-muted/40 transition-colors">
+                                            <div className="w-8 pt-2 text-center text-sm text-muted-foreground font-medium">{index + 1}</div>
 
                                             <FormField
                                                 control={form.control}
@@ -339,7 +347,7 @@ export default function ExportPage() {
                                                 type="button"
                                                 variant="ghost"
                                                 size="icon"
-                                                className="text-red-400 hover:text-red-500 hover:bg-red-50"
+                                                className="text-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                                                 onClick={() => remove(index)}
                                             >
                                                 <Trash2 className="w-4 h-4" />
@@ -351,7 +359,7 @@ export default function ExportPage() {
                                     <Button
                                         type="button"
                                         variant="outline"
-                                        className="w-full border-dashed text-gray-500 hover:text-primary hover:border-primary"
+                                        className="w-full border-dashed text-muted-foreground hover:text-primary hover:border-primary"
                                         onClick={() => append({ serialNumber: "", capacity: "", model: "", note: "" })}
                                     >
                                         <Plus className="w-4 h-4 mr-2" /> Thêm máy tiếp theo

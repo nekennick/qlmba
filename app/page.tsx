@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { vi } from "date-fns/locale"
 import { DateRange } from "react-day-picker"
+import { ModeToggle } from "@/components/mode-toggle"
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<any>({ totalImported: 0, totalExported: 0, unreturned: 0 })
@@ -43,22 +44,23 @@ export default function DashboardPage() {
   }, [date])
 
   return (
-    <div className="flex h-screen flex-col bg-slate-50">
-      <header className="h-16 border-b bg-white flex items-center justify-between px-6 shadow-sm">
+    <div className="flex h-screen flex-col bg-background">
+      <header className="h-16 border-b bg-card flex items-center justify-between px-6 shadow-sm">
         <div className="flex items-center gap-2">
           <Package className="w-6 h-6 text-primary" />
-          <h1 className="text-xl font-bold text-slate-800">Quản Lý Giao Nhận MBA</h1>
+          <h1 className="text-xl font-bold text-foreground">Quản Lý Giao Nhận MBA | www.khoatran.io.vn</h1>
         </div>
         <div className="flex items-center gap-3">
+          <ModeToggle />
           <NotificationBell unreturnedCount={stats.unreturned} />
 
-          <Button asChild variant="outline" className="border-green-600 text-green-700 hover:bg-green-50">
+          <Button asChild variant="outline" className="border-green-600 text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/20">
             <Link href="/import">
               <ArrowDownCircle className="mr-2 h-4 w-4" />
               Nhận MBA
             </Link>
           </Button>
-          <Button asChild className="bg-blue-600 hover:bg-blue-700">
+          <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-700 dark:hover:bg-blue-600">
             <Link href="/export">
               <ArrowUpCircle className="mr-2 h-4 w-4" />
               Trả MBA
