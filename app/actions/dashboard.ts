@@ -23,20 +23,23 @@ export async function getDashboardStats(range?: { from?: Date, to?: Date }) {
         // Filter Recent Transactions
         const whereClause: any = {}
         if (range?.from || range?.to) {
+            const dateFilter: any = {}
+            if (range.from) {
+                const fromDate = new Date(range.from)
+                fromDate.setHours(0, 0, 0, 0)
+                dateFilter.gte = fromDate
+            }
+            if (range.to) {
+                const toDate = new Date(range.to)
+                toDate.setHours(23, 59, 59, 999)
+                dateFilter.lte = toDate
+            }
+
             whereClause.dispatch = {
-                date: {
-                    gte: range.from, // If undefined, prisma ignores gte/lte if structured correctly, but simpler to check
-                    lte: range.to
-                }
-            }
-            if (range.from && !range.to) {
-                whereClause.dispatch = { date: { gte: range.from } }
-            }
-            if (!range.from && range.to) {
-                whereClause.dispatch = { date: { lte: range.to } }
-            }
-            if (range.from && range.to) {
-                whereClause.dispatch = { date: { gte: range.from, lte: range.to } }
+                OR: [
+                    { transactionDate: dateFilter },
+                    { transactionDate: null, date: dateFilter }
+                ]
             }
         }
 

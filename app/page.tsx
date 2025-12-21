@@ -137,7 +137,7 @@ export default function DashboardPage() {
         <Card className="flex-1">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div>
-              <CardTitle>Giao dịch gần đây</CardTitle>
+              <CardTitle>Giao nhận gần đây</CardTitle>
               <CardDescription>Danh sách máy biến áp vừa được nhận hoặc trả.</CardDescription>
             </div>
             <div className={cn("grid gap-2 flex flex-row items-center")}>
