@@ -27,6 +27,7 @@ export async function getDispatchById(id: string) {
                 documentType: dispatch.documentType,
                 fileUrl: dispatch.fileUrl,
                 linkedCvId: dispatch.linkedCvId,
+                sourceDispatchId: dispatch.sourceDispatchId,
                 linkedCvInfo: dispatch.linkedCv ? {
                     id: dispatch.linkedCv.id,
                     dispatchNumber: dispatch.linkedCv.dispatchNumber,

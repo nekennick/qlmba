@@ -20,6 +20,7 @@ const formSchema = z.object({
     documentType: z.enum(["CV", "TTr"]).optional(),
     unit: z.string().optional(),
     transformers: z.array(transformerSchema).min(1),
+    sourceDispatchId: z.string().optional(),
 })
 
 export async function createExportDispatch(data: z.infer<typeof formSchema>) {
@@ -41,6 +42,7 @@ export async function createExportDispatch(data: z.infer<typeof formSchema>) {
                 date: new Date(date),
                 type: "EXPORT",
                 documentType: documentType || "CV",
+                sourceDispatchId: result.data.sourceDispatchId,
                 fileUrl: "", // TODO: Handle file upload
                 transformers: {
                     create: transformers.map(t => ({

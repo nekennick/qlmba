@@ -137,11 +137,9 @@ export const columns: ColumnDef<Transformer>[] = [
                 <div className="flex flex-col gap-1 px-1">
                     <div className="flex items-center gap-2">
                         <span className="font-medium">{data.dispatchNumber || "N/A"}</span>
-                        {isImport && (
-                            <Badge variant={docType === "CV" ? "default" : "secondary"} className={docType === "CV" ? "bg-blue-600 hover:bg-blue-700 h-5 px-1.5" : "bg-amber-600 hover:bg-amber-700 text-white h-5 px-1.5"}>
-                                {docType}
-                            </Badge>
-                        )}
+                        <Badge variant={docType === "CV" ? "default" : "secondary"} className={docType === "CV" ? "bg-blue-600 hover:bg-blue-700 h-5 px-1.5" : "bg-amber-600 hover:bg-amber-700 text-white h-5 px-1.5"}>
+                            {docType}
+                        </Badge>
                     </div>
 
                     {/* Show linking info if any */}

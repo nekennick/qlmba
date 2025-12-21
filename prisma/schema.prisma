@@ -22,6 +22,11 @@ model Dispatch {
   linkedCv       Dispatch?     @relation("CvToTtr", fields: [linkedCvId], references: [id])
   linkedCvId     String?
   
+  // Export liên kết với Import nguồn (self-referential relation)
+  exportedDispatches Dispatch[] @relation("SourceToExport")
+  sourceDispatch     Dispatch?  @relation("SourceToExport", fields: [sourceDispatchId], references: [id])
+  sourceDispatchId   String?
+
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 }

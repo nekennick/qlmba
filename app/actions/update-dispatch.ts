@@ -23,6 +23,7 @@ const updateSchema = z.object({
     // For TTr: CV info to create and link
     linkedCvNumber: z.string().optional(),
     linkedCvDate: z.string().optional(),
+    sourceDispatchId: z.string().optional(),
 })
 
 export async function updateDispatch(data: z.infer<typeof updateSchema>) {
@@ -42,6 +43,7 @@ export async function updateDispatch(data: z.infer<typeof updateSchema>) {
                 date: new Date(date),
                 documentType: documentType || "CV",
                 fileUrl: fileUrl || "",
+                sourceDispatchId: result.data.sourceDispatchId,
             }
         })
 

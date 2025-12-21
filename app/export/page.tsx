@@ -9,6 +9,8 @@ import Link from "next/link"
 import { toast } from "sonner"
 import { createExportDispatch } from "@/app/actions/export-dispatch"
 import { getImportDispatches } from "@/app/actions/get-dispatches"
+import { getDispatchById } from "@/app/actions/get-dispatch"
+import { updateDispatch } from "@/app/actions/update-dispatch"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,7 +37,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { UNITS, CV_SUFFIX } from "@/lib/constants"
 import { useUnitStore } from "@/lib/store/unit-store"
@@ -64,6 +66,9 @@ export default function ExportPage() {
     // Unit state is now managed globally by useUnitStore
 
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const editId = searchParams.get("edit")
+    const isEditMode = !!editId
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -87,6 +92,36 @@ export default function ExportPage() {
         }
         fetchImports()
     }, [])
+
+    useEffect(() => {
+        if (editId) {
+            getDispatchById(editId).then((result) => {
+                if (result.success && result.data) {
+                    const data = result.data
+                    form.reset({
+                        dispatchNumber: data.dispatchNumber || "",
+                        date: data.date,
+                        documentType: (data.documentType as "CV" | "TTr") || "CV",
+                        transformers: data.transformers.map(t => ({
+                            serialNumber: t.serialNumber,
+                            capacity: t.capacity,
+                            model: t.model || "",
+                            note: t.note || "",
+                        })),
+                    })
+                    setDocumentType((data.documentType as "CV" | "TTr") || "CV")
+                    if (data.fileUrl) {
+                        setPdfFile(data.fileUrl)
+                    }
+                    if (data.sourceDispatchId) {
+                        setSelectedImportId(data.sourceDispatchId)
+                    }
+                } else {
+                    toast.error("Không tìm thấy dữ liệu")
+                }
+            })
+        }
+    }, [editId, form])
 
     const handleSelectImport = (dispatch: any) => {
         const isSelected = dispatch.id !== selectedImportId
@@ -138,16 +173,36 @@ export default function ExportPage() {
             const payload = {
                 ...values,
                 dispatchNumber: dispatchNumberWithSuffix,
+                sourceDispatchId: selectedImportId || undefined,
             }
 
-            const result = await createExportDispatch(payload)
-            if (result.success) {
-                const docTypeName = values.documentType === "CV" ? "Công Văn" : "Tờ Trình"
-                toast.success(`Đã lưu ${docTypeName} TRẢ thành công!`)
-                router.push('/')
-                router.refresh()
+            if (isEditMode && editId) {
+                // Update
+                const updatePayload = {
+                    ...payload,
+                    id: editId,
+                    fileUrl: pdfFile || undefined,
+                    sourceDispatchId: selectedImportId || undefined,
+                }
+                const result = await updateDispatch(updatePayload)
+                if (result.success) {
+                    toast.success("Cập nhật thành công!")
+                    router.push('/')
+                    router.refresh()
+                } else {
+                    toast.error(result.error || "Có lỗi xảy ra")
+                }
             } else {
-                toast.error(result.error || "Có lỗi xảy ra")
+                // Create
+                const result = await createExportDispatch(payload)
+                if (result.success) {
+                    const docTypeName = values.documentType === "CV" ? "Công Văn" : "Tờ Trình"
+                    toast.success(`Đã lưu ${docTypeName} TRẢ thành công!`)
+                    router.push('/')
+                    router.refresh()
+                } else {
+                    toast.error(result.error || "Có lỗi xảy ra")
+                }
             }
         } catch (error) {
             toast.error("Lỗi kết nối")
@@ -217,9 +272,9 @@ export default function ExportPage() {
             {/* RIGHT PANE: Form */}
             <div className="w-1/2 h-full flex flex-col bg-background">
                 <div className="p-4 border-b h-16 flex items-center justify-between">
-                    <h2 className="font-semibold text-lg text-primary">Nhập số liệu MBA trả</h2>
+                    <h2 className="font-semibold text-lg text-primary">{isEditMode ? "Cập nhật số liệu MBA trả" : "Nhập số liệu MBA trả"}</h2>
                     <Button onClick={form.handleSubmit(onSubmit)} className="gap-2">
-                        <Save className="w-4 h-4" /> Lưu thông tin
+                        <Save className="w-4 h-4" /> {isEditMode ? "Cập nhật" : "Lưu thông tin"}
                     </Button>
                 </div>
 
@@ -274,7 +329,7 @@ export default function ExportPage() {
                                         </Popover>
                                     </FormItem>
 
-                                    <FormField
+                                    {/* <FormField
                                         control={form.control}
                                         name="dispatchNumber"
                                         render={({ field }) => (
@@ -286,7 +341,7 @@ export default function ExportPage() {
                                                 <FormMessage />
                                             </FormItem>
                                         )}
-                                    />
+                                    /> */}
                                     <FormField
                                         control={form.control}
                                         name="date"
