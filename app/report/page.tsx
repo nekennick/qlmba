@@ -137,7 +137,7 @@ export default function ReportPage() {
     const groupByDate = (list: any[]) => {
         const groups = new Map<string, GroupedData>()
         list.forEach(item => {
-            const d = new Date(item.date)
+            const d = item.transactionDate ? new Date(item.transactionDate) : new Date(item.date)
             const dateStr = format(d, "dd/MM/yyyy")
             if (!groups.has(dateStr)) {
                 groups.set(dateStr, { dateStr, originalDate: d, dispatches: [] })
@@ -149,6 +149,22 @@ export default function ReportPage() {
 
     const importGroups = groupByDate(imports)
     const exportGroups = groupByDate(exports)
+
+    // Calculate Report Date (Signature Date) based on the latest transaction date in the data
+    const getReportDate = () => {
+        const allItems = [...imports, ...exports]
+        if (allItems.length === 0) return new Date()
+
+        // Find latest date
+        let maxDate = new Date(0)
+        allItems.forEach(item => {
+            const d = item.transactionDate ? new Date(item.transactionDate) : new Date(item.date)
+            if (d > maxDate) maxDate = d
+        })
+        return maxDate.getTime() === new Date(0).getTime() ? new Date() : maxDate
+    }
+
+    const reportDate = getReportDate()
 
     return (
         <div className="min-h-screen bg-gray-100 flex justify-center py-8 print:bg-white print:p-0 print:block">
@@ -218,7 +234,7 @@ export default function ReportPage() {
                             Độc lập - Tự do - Hạnh phúc
                         </div>
                         <div className="mt-2 italic" style={{ marginTop: '0.5rem', fontStyle: 'italic' }}>
-                            Đồng Tháp, ngày {format(new Date(), "dd")} tháng {format(new Date(), "MM")} năm {format(new Date(), "yyyy")}
+                            Đồng Tháp, ngày {format(reportDate, "dd")} tháng {format(reportDate, "MM")} năm {format(reportDate, "yyyy")}
                         </div>
                     </div>
                 </div>

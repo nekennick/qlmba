@@ -16,6 +16,7 @@ const updateSchema = z.object({
     id: z.string().min(1),
     dispatchNumber: z.string().min(1),
     date: z.string().min(1),
+    transactionDate: z.string().optional(),
     fileUrl: z.string().optional(),
     documentType: z.enum(["CV", "TTr"]).default("CV"),
     linkedTtrIds: z.array(z.string()).optional(),
@@ -32,7 +33,7 @@ export async function updateDispatch(data: z.infer<typeof updateSchema>) {
         return { success: false, error: "Dữ liệu không hợp lệ" }
     }
 
-    const { id, dispatchNumber, date, transformers, fileUrl, documentType, linkedTtrIds, linkedCvNumber, linkedCvDate } = result.data
+    const { id, dispatchNumber, date, transformers, fileUrl, documentType, linkedTtrIds, linkedCvNumber, linkedCvDate, sourceDispatchId, transactionDate } = result.data
 
     try {
         // Cập nhật dispatch
@@ -41,6 +42,7 @@ export async function updateDispatch(data: z.infer<typeof updateSchema>) {
             data: {
                 dispatchNumber,
                 date: new Date(date),
+                transactionDate: transactionDate ? new Date(transactionDate) : undefined,
                 documentType: documentType || "CV",
                 fileUrl: fileUrl || "",
                 sourceDispatchId: result.data.sourceDispatchId,

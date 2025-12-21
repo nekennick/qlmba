@@ -14,6 +14,7 @@ const transformerSchema = z.object({
 const formSchema = z.object({
     dispatchNumber: z.string().min(1),
     date: z.string().min(1),
+    transactionDate: z.string().optional(),
     fileUrl: z.string().optional(),
     documentType: z.enum(["CV", "TTr"]).default("CV"),
     linkedTtrIds: z.array(z.string()).optional(), // IDs của các TTr cần liên kết (chỉ dùng khi documentType = CV)
@@ -51,7 +52,7 @@ export async function createImportDispatch(data: z.infer<typeof formSchema>) {
         return { success: false, error: "Dữ liệu không hợp lệ" }
     }
 
-    const { dispatchNumber, date, transformers, fileUrl, documentType, linkedTtrIds } = result.data
+    const { dispatchNumber, date, transformers, fileUrl, documentType, linkedTtrIds, transactionDate } = result.data
 
     try {
         // Tạo dispatch mới
@@ -59,6 +60,7 @@ export async function createImportDispatch(data: z.infer<typeof formSchema>) {
             data: {
                 dispatchNumber,
                 date: new Date(date),
+                transactionDate: transactionDate ? new Date(transactionDate) : undefined,
                 type: "IMPORT",
                 documentType: documentType || "CV",
                 fileUrl: fileUrl || "",

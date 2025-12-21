@@ -52,6 +52,7 @@ const transformerSchema = z.object({
 const formSchema = z.object({
     dispatchNumber: z.string().min(1, "Số công văn là bắt buộc"),
     date: z.string().min(1, "Ngày là bắt buộc"),
+    transactionDate: z.string().optional(),
     documentType: z.enum(["CV", "TTr"]),
     transformers: z.array(transformerSchema).min(1, "Cần ít nhất 1 máy"),
 })
@@ -75,6 +76,7 @@ export default function ExportPage() {
         defaultValues: {
             dispatchNumber: "",
             date: new Date().toISOString().split('T')[0],
+            transactionDate: new Date().toISOString().split('T')[0],
             documentType: "CV",
             transformers: [{ serialNumber: "", capacity: "", model: "", note: "" }],
         },
@@ -101,6 +103,7 @@ export default function ExportPage() {
                     form.reset({
                         dispatchNumber: data.dispatchNumber || "",
                         date: data.date,
+                        transactionDate: data.transactionDate || new Date().toISOString().split('T')[0],
                         documentType: (data.documentType as "CV" | "TTr") || "CV",
                         transformers: data.transformers.map(t => ({
                             serialNumber: t.serialNumber,
@@ -347,9 +350,23 @@ export default function ExportPage() {
                                         name="date"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Ngày văn bản</FormLabel>
+                                                <FormLabel>Ngày công văn</FormLabel>
                                                 <FormControl>
                                                     <Input type="date" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    <FormField
+                                        control={form.control}
+                                        name="transactionDate"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Ngày trả MBA</FormLabel>
+                                                <FormControl>
+                                                    <Input type="date" {...field} value={field.value || new Date().toISOString().split('T')[0]} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>

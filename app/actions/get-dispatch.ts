@@ -23,6 +23,7 @@ export async function getDispatchById(id: string) {
                 id: dispatch.id,
                 dispatchNumber: dispatch.dispatchNumber,
                 date: dispatch.date.toISOString().split('T')[0],
+                transactionDate: dispatch.transactionDate ? dispatch.transactionDate.toISOString().split('T')[0] : null,
                 type: dispatch.type,
                 documentType: dispatch.documentType,
                 fileUrl: dispatch.fileUrl,

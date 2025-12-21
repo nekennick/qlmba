@@ -77,7 +77,7 @@ export async function getDashboardStats(range?: { from?: Date, to?: Date }) {
                 model: t.model,
                 note: t.note,
                 dispatchNumber: t.dispatch.dispatchNumber,
-                date: t.dispatch.date,
+                date: t.dispatch.transactionDate || t.dispatch.date,
                 type: t.dispatch.type,
                 documentType: t.dispatch.documentType,
                 linkedCv: t.dispatch.linkedCv ? {
