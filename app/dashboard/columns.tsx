@@ -1,9 +1,8 @@
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown, MoreHorizontal, Trash2, Pencil } from "lucide-react"
+import { ArrowUpDown, MoreHorizontal, Trash2, Pencil, Link2 } from "lucide-react"
 import React from "react"
-import { EditTransformerDialog } from "@/components/dashboard/edit-transformer-dialog"
 
 import { DataTableFacetedFilter } from "@/components/ui/data-table-faceted-filter"
 
@@ -24,11 +23,11 @@ export type Transformer = {
     note: string | null
     date: Date
     type: "IMPORT" | "EXPORT"
+    documentType?: "CV" | "TTr"
+    linkedCv?: {
+        dispatchNumber: string
+    } | null
 }
-
-// Function to handle delete (we'll need to pass a callback or use server action directly if possible,
-// but for now let's keep the logic simple or just expose the button)
-// Since we are inside a client component (Table), we can call server actions.
 
 export const columns: ColumnDef<Transformer>[] = [
     {
@@ -107,32 +106,32 @@ export const columns: ColumnDef<Transformer>[] = [
     },
     {
         accessorKey: "dispatchNumber",
-        header: ({ column }) => {
-            // Values might be null, handle that
-            const uniqueValues = Array.from(column.getFacetedUniqueValues().keys())
-                .filter(Boolean) as string[]
-
-            const options = uniqueValues.map(val => ({
-                label: val,
-                value: val
-            }))
+        header: "Số Công Văn",
+        cell: ({ row }) => {
+            const data = row.original
+            const isImport = data.type === "IMPORT"
+            const docType = data.documentType || "CV"
 
             return (
-                <div className="flex flex-col gap-2 items-start py-2">
-                    <Button
-                        variant="ghost"
-                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                        className="px-0 h-auto font-semibold hover:bg-transparent"
-                    >
-                        Số Công Văn
-                        <ArrowUpDown className="ml-2 h-3 w-3" />
-                    </Button>
-                    <DataTableFacetedFilter title="Số CV" column={column} options={options} />
+                <div className="flex flex-col gap-1 px-1">
+                    <div className="flex items-center gap-2">
+                        <span className="font-medium">{data.dispatchNumber || "N/A"}</span>
+                        {isImport && (
+                            <Badge variant={docType === "CV" ? "default" : "secondary"} className={docType === "CV" ? "bg-blue-600 hover:bg-blue-700 h-5 px-1.5" : "bg-amber-600 hover:bg-amber-700 text-white h-5 px-1.5"}>
+                                {docType}
+                            </Badge>
+                        )}
+                    </div>
+
+                    {/* Show linking info if any */}
+                    {data.documentType === "TTr" && data.linkedCv && (
+                        <div className="flex items-center gap-1 text-xs text-blue-600 font-medium whitespace-nowrap">
+                            <Link2 className="w-3 h-3" />
+                            <span>→ {data.linkedCv.dispatchNumber}</span>
+                        </div>
+                    )}
                 </div>
             )
-        },
-        filterFn: (row, id, value) => {
-            return value.includes(row.getValue(id))
         },
     },
     {
@@ -188,6 +187,9 @@ export const columns: ColumnDef<Transformer>[] = [
         filterFn: (row, id, value) => {
             return value.includes(row.getValue(id))
         },
+        cell: ({ row }) => {
+            return <div className="font-medium">{row.getValue("capacity") || "-"}</div>
+        },
     },
     {
         accessorKey: "model",
@@ -217,81 +219,65 @@ export const columns: ColumnDef<Transformer>[] = [
         filterFn: (row, id, value) => {
             return value.includes(row.getValue(id))
         },
+        cell: ({ row }) => {
+            return <div className="font-medium">{row.getValue("model") || "-"}</div>
+        },
     },
     {
         accessorKey: "note",
         header: ({ column }) => {
             return (
                 <div className="flex flex-col gap-2 items-start py-2">
-                    <Button
-                        variant="ghost"
-                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                        className="px-0 h-auto font-semibold hover:bg-transparent"
-                    >
-                        Ghi chú
-                        <ArrowUpDown className="ml-2 h-3 w-3" />
-                    </Button>
+                    <div className="font-semibold px-0 h-9 flex items-center">Ghi chú</div>
                     <Input
                         placeholder="Lọc ghi chú..."
                         value={(column.getFilterValue() as string) ?? ""}
                         onChange={(event) =>
                             column.setFilterValue(event.target.value)
                         }
-                        className="h-8 w-[150px]"
+                        className="h-8 w-[120px]"
                     />
                 </div>
             )
         },
         cell: ({ row }) => {
-            const note = row.getValue("note") as string
-            return (
-                <div className="max-w-[150px] truncate" title={note || ""}>
-                    {note || "-"}
-                </div>
-            )
+            return <div className="text-muted-foreground text-sm">{row.getValue("note") || "-"}</div>
         }
     },
     {
         id: "actions",
-        header: () => <div className="text-right">Thao tác</div>,
+        header: "Thao tác",
         cell: ({ row }) => {
             const transformer = row.original
-            const [editOpen, setEditOpen] = React.useState(false)
+            const editUrl = transformer.type === "IMPORT"
+                ? `/import?edit=${transformer.dispatchId}`
+                : `/export?edit=${transformer.dispatchId}`
 
             const handleDelete = async () => {
-                if (!confirm(`Xác nhận xóa công văn "${transformer.dispatchNumber || 'N/A'}"?`)) return
-
-                const result = await deleteDispatch(transformer.dispatchId)
-                if (result.success) {
-                    toast.success("Đã xóa giao dịch")
-                    window.location.reload()
-                } else {
-                    toast.error(result.error || "Không thể xóa")
+                const confirmed = window.confirm("Bạn có chắc chắn muốn xóa giao dịch này? Hành động này sẽ xóa cả phiếu nhập/xuất và các máy biến áp liên quan.")
+                if (confirmed) {
+                    try {
+                        const result = await deleteDispatch(transformer.dispatchId)
+                        if (result.success) {
+                            toast.success("Đã xóa giao dịch thành công")
+                            window.location.reload()
+                        } else {
+                            toast.error(result.error || "Có lỗi xảy ra khi xóa")
+                        }
+                    } catch (error) {
+                        toast.error("Lỗi kết nối")
+                    }
                 }
             }
 
             return (
-                <div className="flex justify-end gap-2">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
-                        onClick={() => setEditOpen(true)}
-                    >
-                        <Pencil className="h-4 w-4" />
-                    </Button>
-                    <EditTransformerDialog
-                        transformer={transformer}
-                        open={editOpen}
-                        onOpenChange={setEditOpen}
-                    />
-
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
-                        onClick={handleDelete}
-                    >
+                <div className="flex items-center gap-2">
+                    <a href={editUrl}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-500 hover:text-blue-700 hover:bg-blue-50">
+                            <Pencil className="h-4 w-4" />
+                        </Button>
+                    </a>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={handleDelete}>
                         <Trash2 className="h-4 w-4" />
                     </Button>
                 </div>

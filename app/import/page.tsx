@@ -1,20 +1,24 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Upload, Plus, Trash2, Save, Search, FileText, ArrowLeft } from "lucide-react"
+import { Upload, Plus, Trash2, Save, Search, FileText, ArrowLeft, Link2 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 import { createImportDispatch, searchDispatches } from "@/app/actions/import-dispatch"
 import { uploadFile } from "@/app/actions/upload"
+import { getUnlinkedTtrs } from "@/app/actions/get-unlinked-ttrs"
+import { getDispatchById } from "@/app/actions/get-dispatch"
+import { updateDispatch } from "@/app/actions/update-dispatch"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { ScrollArea } from "@/components/ui/scroll-area"
+
+
 import {
     Dialog,
     DialogContent,
@@ -29,7 +33,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 const transformerSchema = z.object({
     serialNumber: z.string().min(1, "Bắt buộc"),
@@ -41,8 +45,13 @@ const transformerSchema = z.object({
 const formSchema = z.object({
     dispatchNumber: z.string().min(1, "Số công văn là bắt buộc"),
     date: z.string().min(1, "Ngày là bắt buộc"),
+    documentType: z.enum(["CV", "TTr"]),
+    linkedTtrIds: z.array(z.string()).optional(),
     transformers: z.array(transformerSchema).min(1, "Cần ít nhất 1 máy"),
     fileUrl: z.string().optional(),
+    // CV info for linking TTr to CV
+    linkedCvNumber: z.string().optional(),
+    linkedCvDate: z.string().optional(),
 })
 
 export default function ImportPage() {
@@ -51,17 +60,99 @@ export default function ImportPage() {
     const [searchQuery, setSearchQuery] = useState("")
     const [searchResults, setSearchResults] = useState<any[]>([])
     const [isSearchOpen, setIsSearchOpen] = useState(false)
+    const [unlinkedTtrs, setUnlinkedTtrs] = useState<any[]>([])
+    const [isEditMode, setIsEditMode] = useState(false)
+    const [editId, setEditId] = useState<string | null>(null)
+    const [linkedCvInfo, setLinkedCvInfo] = useState<{ id: string; dispatchNumber: string } | null>(null)
+    const [selectedTtrIds, setSelectedTtrIds] = useState<string[]>([])
+    const [previewTtr, setPreviewTtr] = useState<{ id: string; dispatchNumber: string; date: string; fileUrl: string | null; transformers: any[] } | null>(null)
+    const [linkedTtrsInfo, setLinkedTtrsInfo] = useState<{ id: string; dispatchNumber: string; date: string }[]>([])
     const router = useRouter()
+    const searchParams = useSearchParams()
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
             dispatchNumber: "",
             date: new Date().toISOString().split('T')[0],
+            documentType: "CV",
+            linkedTtrIds: [],
             transformers: [{ serialNumber: "", capacity: "", model: "", note: "" }],
         },
     })
 
+    // Use state for documentType to avoid re-render on every form change from form.watch()
+    const [documentType, setDocumentType] = useState<"CV" | "TTr">("CV")
+
+    const hasLoadedEditData = useRef(false)
+
+    // Check if in edit mode - run only once on mount
+    useEffect(() => {
+        const editParam = searchParams.get("edit")
+        if (editParam && !hasLoadedEditData.current) {
+            hasLoadedEditData.current = true
+            setIsEditMode(true)
+            setEditId(editParam)
+            // Load dispatch data
+            getDispatchById(editParam).then((result) => {
+                if (result.success && result.data) {
+                    const data = result.data
+                    form.reset({
+                        dispatchNumber: data.dispatchNumber || "",
+                        date: data.date,
+                        documentType: (data.documentType as "CV" | "TTr") || "CV",
+                        linkedTtrIds: data.linkedTtrIds || [],
+                        transformers: data.transformers.map(t => ({
+                            serialNumber: t.serialNumber,
+                            capacity: t.capacity,
+                            model: t.model,
+                            note: t.note,
+                        })),
+                    })
+                    // Sync documentType state
+                    setDocumentType((data.documentType as "CV" | "TTr") || "CV")
+                    // Sync selectedTtrIds state
+                    setSelectedTtrIds(data.linkedTtrIds || [])
+                    if (data.fileUrl) {
+                        setPdfFile(data.fileUrl)
+                    }
+                    // Set linked CV info if exists
+                    if (data.linkedCvInfo && data.linkedCvInfo.dispatchNumber) {
+                        setLinkedCvInfo({
+                            id: data.linkedCvInfo.id,
+                            dispatchNumber: data.linkedCvInfo.dispatchNumber
+                        })
+                    }
+                    // Set linked TTrs info (for CV edit mode)
+                    if (data.linkedTtrsInfo) {
+                        setLinkedTtrsInfo(
+                            data.linkedTtrsInfo
+                                .filter((t: any) => t.dispatchNumber)
+                                .map((t: any) => ({ id: t.id, dispatchNumber: t.dispatchNumber as string, date: t.date }))
+                        )
+                    }
+                } else {
+                    toast.error(result.error || "Không tìm thấy phiếu")
+                    router.push("/")
+                }
+            })
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+
+    const hasFetchedTtrs = useRef(false)
+
+    // Fetch unlinked TTrs when documentType is CV (only once)
+    useEffect(() => {
+        if (documentType === "CV" && !hasFetchedTtrs.current) {
+            hasFetchedTtrs.current = true
+            getUnlinkedTtrs().then((result) => {
+                if (result.success && result.data) {
+                    setUnlinkedTtrs(result.data)
+                }
+            })
+        }
+    }, [documentType])
 
     const { fields, append, remove, replace } = useFieldArray({
         control: form.control,
@@ -118,12 +209,23 @@ export default function ImportPage() {
 
             const payload = {
                 ...values,
-                fileUrl: uploadedFileUrl
+                fileUrl: uploadedFileUrl || pdfFile || "",
+                linkedTtrIds: values.linkedTtrIds || [],
             }
 
-            const result = await createImportDispatch(payload)
+            let result
+            if (isEditMode && editId) {
+                // Update existing dispatch
+                result = await updateDispatch({ id: editId, ...payload })
+            } else {
+                // Create new dispatch
+                result = await createImportDispatch(payload)
+            }
+
             if (result.success) {
-                toast.success("Đã lưu văn bản NHẬN thành công!")
+                const docTypeName = values.documentType === "CV" ? "Công Văn" : "Tờ Trình"
+                const action = isEditMode ? "cập nhật" : "lưu"
+                toast.success(`Đã ${action} ${docTypeName} NHẬN thành công!`)
                 router.push('/')
                 router.refresh()
             } else {
@@ -131,7 +233,7 @@ export default function ImportPage() {
             }
         } catch (error) {
             console.error(error)
-            toast.error("Lỗi kết nối")
+            toast.error("Lỗi kết nối: " + (error as Error).message)
         }
     }
 
@@ -202,7 +304,64 @@ export default function ImportPage() {
                 </div>
 
                 <div className="flex-1 overflow-hidden relative bg-muted/50 dark:bg-muted/10">
-                    {pdfFile ? (
+                    {previewTtr ? (
+                        // Preview TTr được chọn
+                        <div className="w-full h-full flex flex-col">
+                            <div className="p-4 bg-blue-50 dark:bg-blue-900/30 border-b">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h3 className="font-semibold text-blue-700 dark:text-blue-400">
+                                            Tờ Trình: {previewTtr.dispatchNumber}
+                                        </h3>
+                                        <p className="text-sm text-muted-foreground">
+                                            Ngày: {new Date(previewTtr.date).toLocaleDateString("vi-VN")} - {previewTtr.transformers.length} MBA
+                                        </p>
+                                    </div>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setPreviewTtr(null)}
+                                    >
+                                        ✕ Đóng
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="flex-1 overflow-auto p-4">
+                                {previewTtr.fileUrl ? (
+                                    previewTtr.fileUrl.toLowerCase().match(/\.(jpg|jpeg|png|webp|gif)$/) ? (
+                                        <img
+                                            src={previewTtr.fileUrl}
+                                            alt="Preview"
+                                            className="max-w-full max-h-full object-contain shadow-md mx-auto"
+                                        />
+                                    ) : (
+                                        <object
+                                            data={previewTtr.fileUrl}
+                                            type="application/pdf"
+                                            className="w-full h-full min-h-[400px]"
+                                        >
+                                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                                                <p>Không thể hiển thị PDF. <a href={previewTtr.fileUrl} target="_blank" className="text-blue-600 underline">Tải xuống</a></p>
+                                            </div>
+                                        </object>
+                                    )
+                                ) : (
+                                    <div className="space-y-2">
+                                        <p className="text-muted-foreground text-center mb-4">Tờ trình không có file đính kèm</p>
+                                        <div className="bg-muted/50 rounded-lg p-4">
+                                            <h4 className="font-medium mb-2">Danh sách MBA:</h4>
+                                            {previewTtr.transformers.map((t: any, idx: number) => (
+                                                <div key={idx} className="text-sm py-1 border-b last:border-0">
+                                                    <span className="font-mono">{t.serialNumber}</span>
+                                                    <span className="text-muted-foreground ml-2">({t.capacity} - {t.model || 'N/A'})</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ) : pdfFile ? (
                         <div className="w-full h-full flex items-center justify-center overflow-auto p-4">
                             {pdfFile.toLowerCase().match(/\.(jpg|jpeg|png|webp|gif)$/) || (selectedFile?.type.startsWith('image/')) ? (
                                 <img
@@ -236,13 +395,15 @@ export default function ImportPage() {
             {/* RIGHT PANE: Form */}
             <div className="w-1/2 h-full flex flex-col bg-background">
                 <div className="p-4 border-b h-16 flex items-center justify-between bg-green-50/50 dark:bg-green-900/10">
-                    <h2 className="font-semibold text-lg text-green-700 dark:text-green-400">Nhập số liệu MBA nhận</h2>
+                    <h2 className="font-semibold text-lg text-green-700 dark:text-green-400">
+                        {isEditMode ? "Chỉnh sửa MBA nhận" : "Nhập số liệu MBA nhận"}
+                    </h2>
                     <Button onClick={form.handleSubmit(onSubmit)} className="gap-2 bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 dark:text-white">
-                        <Save className="w-4 h-4" /> Lưu thông tin
+                        <Save className="w-4 h-4" /> {isEditMode ? "Cập nhật" : "Lưu thông tin"}
                     </Button>
                 </div>
 
-                <ScrollArea className="flex-1 p-4">
+                <div className="flex-1 p-4 overflow-auto">
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pb-20">
 
@@ -278,8 +439,168 @@ export default function ImportPage() {
                                             </FormItem>
                                         )}
                                     />
+                                    <FormField
+                                        control={form.control}
+                                        name="documentType"
+                                        render={({ field }) => (
+                                            <FormItem className="col-span-2">
+                                                <FormLabel>Loại chứng từ</FormLabel>
+                                                <FormControl>
+                                                    <select
+                                                        className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                                        value={field.value}
+                                                        onChange={(e) => {
+                                                            field.onChange(e.target.value)
+                                                            setDocumentType(e.target.value as "CV" | "TTr")
+                                                        }}
+                                                        disabled={isEditMode}
+                                                    >
+                                                        <option value="CV">Công Văn (CV) - Chứng từ chính thức</option>
+                                                        <option value="TTr">Tờ Trình (TTr) - Chứng từ tạm thời</option>
+                                                    </select>
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
                                 </CardContent>
                             </Card>
+
+                            {/* Hiển thị TTr đã liên kết (khi edit CV) */}
+                            {isEditMode && documentType === "CV" && linkedTtrsInfo.length > 0 && (
+                                <Card className="bg-card border-green-200 dark:border-green-800">
+                                    <CardHeader className="py-3 bg-green-50/50 dark:bg-green-900/20 border-b">
+                                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                                            <Link2 className="w-4 h-4 text-green-600" />
+                                            Tờ Trình đã liên kết ({linkedTtrsInfo.length})
+                                        </CardTitle>
+                                        <CardDescription>
+                                            Các Tờ Trình đã được liên kết với Công Văn này
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="pt-4 space-y-2">
+                                        {linkedTtrsInfo.map((ttr) => (
+                                            <div
+                                                key={ttr.id}
+                                                className="flex items-center gap-3 p-3 border rounded-md bg-green-50/50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+                                            >
+                                                <div className="flex-1">
+                                                    <div className="font-medium text-green-700 dark:text-green-400">{ttr.dispatchNumber}</div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {new Date(ttr.date).toLocaleDateString("vi-VN")}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* Liên kết TTr (chỉ hiển thị khi loại chứng từ là CV) */}
+                            {documentType === "CV" && unlinkedTtrs.length > 0 && (
+                                <Card className="bg-card border-blue-200 dark:border-blue-800">
+                                    <CardHeader className="py-3 bg-blue-50/50 dark:bg-blue-900/20 border-b">
+                                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                                            <Link2 className="w-4 h-4 text-blue-600" />
+                                            Liên kết Tờ Trình ({selectedTtrIds.length} đã chọn)
+                                        </CardTitle>
+                                        <CardDescription>
+                                            Chọn các Tờ Trình đã nhận trước đó để liên kết với Công Văn này
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="pt-4 space-y-2">
+                                        {unlinkedTtrs.map((ttr) => (
+                                            <div
+                                                key={ttr.id}
+                                                className={`flex items-center gap-3 p-3 border rounded-md transition-colors ${selectedTtrIds.includes(ttr.id)
+                                                    ? "bg-blue-50 border-blue-300 dark:bg-blue-900/30 dark:border-blue-700"
+                                                    : "hover:bg-muted/50"
+                                                    }`}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedTtrIds.includes(ttr.id)}
+                                                    onChange={() => {
+                                                        const newIds = selectedTtrIds.includes(ttr.id)
+                                                            ? selectedTtrIds.filter((id) => id !== ttr.id)
+                                                            : [...selectedTtrIds, ttr.id]
+                                                        setSelectedTtrIds(newIds)
+                                                        form.setValue("linkedTtrIds", newIds, { shouldValidate: true })
+                                                    }}
+                                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                />
+                                                <div className="flex-1">
+                                                    <div className="font-medium">{ttr.dispatchNumber}</div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {new Date(ttr.date).toLocaleDateString("vi-VN")} - {ttr.transformers.length} MBA
+                                                    </div>
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    variant={previewTtr?.id === ttr.id ? "default" : "ghost"}
+                                                    size="icon"
+                                                    className="h-8 w-8"
+                                                    onClick={() => setPreviewTtr(previewTtr?.id === ttr.id ? null : ttr)}
+                                                    title="Xem preview"
+                                                >
+                                                    <FileText className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* Liên kết CV chính thức (chỉ hiển thị khi đang edit TTr) */}
+                            {isEditMode && documentType === "TTr" && (
+                                <Card className="bg-card border-green-200 dark:border-green-800">
+                                    <CardHeader className="py-3 bg-green-50/50 dark:bg-green-900/20 border-b">
+                                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                                            <FileText className="w-4 h-4 text-green-600" />
+                                            Liên kết Công Văn chính thức
+                                        </CardTitle>
+                                        <CardDescription>
+                                            {linkedCvInfo
+                                                ? `Đã liên kết với: ${linkedCvInfo.dispatchNumber}`
+                                                : "Nhập thông tin CV chính thức để liên kết với Tờ Trình này"
+                                            }
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="pt-4">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <FormField
+                                                control={form.control}
+                                                name="linkedCvNumber"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Số Công Văn chính thức</FormLabel>
+                                                        <FormControl>
+                                                            <Input placeholder="VD: 123/CV-PC07" {...field} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name="linkedCvDate"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Ngày Công Văn</FormLabel>
+                                                        <FormControl>
+                                                            <Input type="date" {...field} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+                                        <p className="text-xs text-muted-foreground mt-3">
+                                            Khi lưu, hệ thống sẽ tự động tạo CV chính thức và liên kết với TTr này
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                            )}
 
                             {/* Danh sách máy */}
                             <Card className="bg-card">
@@ -318,20 +639,18 @@ export default function ImportPage() {
                                                 name={`transformers.${index}.capacity`}
                                                 render={({ field }) => (
                                                     <FormItem className="w-32">
-                                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                            <FormControl>
-                                                                <SelectTrigger>
-                                                                    <SelectValue placeholder="Dung lượng" />
-                                                                </SelectTrigger>
-                                                            </FormControl>
-                                                            <SelectContent>
+                                                        <FormControl>
+                                                            <select
+                                                                className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                                                value={field.value || ""}
+                                                                onChange={(e) => field.onChange(e.target.value)}
+                                                            >
+                                                                <option value="">Dung lượng</option>
                                                                 {["25kVA", "37.5kVA", "50kVA", "75kVA", "100kVA", "160kVA", "250kVA"].map((cap) => (
-                                                                    <SelectItem key={cap} value={cap}>
-                                                                        {cap}
-                                                                    </SelectItem>
+                                                                    <option key={cap} value={cap}>{cap}</option>
                                                                 ))}
-                                                            </SelectContent>
-                                                        </Select>
+                                                            </select>
+                                                        </FormControl>
                                                         <FormMessage className="text-xs" />
                                                     </FormItem>
                                                 )}
@@ -342,17 +661,17 @@ export default function ImportPage() {
                                                 name={`transformers.${index}.model`}
                                                 render={({ field }) => (
                                                     <FormItem className="w-32">
-                                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                            <FormControl>
-                                                                <SelectTrigger>
-                                                                    <SelectValue placeholder="Loại/Hãng" />
-                                                                </SelectTrigger>
-                                                            </FormControl>
-                                                            <SelectContent>
-                                                                <SelectItem value="1P">1P</SelectItem>
-                                                                <SelectItem value="3P">3P</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
+                                                        <FormControl>
+                                                            <select
+                                                                className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                                                value={field.value || ""}
+                                                                onChange={(e) => field.onChange(e.target.value)}
+                                                            >
+                                                                <option value="">Loại/Hãng</option>
+                                                                <option value="1P">1P</option>
+                                                                <option value="3P">3P</option>
+                                                            </select>
+                                                        </FormControl>
                                                         <FormMessage className="text-xs" />
                                                     </FormItem>
                                                 )}
@@ -398,7 +717,7 @@ export default function ImportPage() {
 
                         </form>
                     </Form>
-                </ScrollArea>
+                </div>
             </div>
         </div>
     )

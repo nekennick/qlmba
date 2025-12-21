@@ -11,10 +11,16 @@ model Dispatch {
   id             String        @id @default(uuid())
   dispatchNumber String?
   fileUrl        String?
-  type           String
+  type           String        // IMPORT | EXPORT
+  documentType   String        @default("CV") // CV | TTr
   date           DateTime      @default(now())
   
   transformers   Transformer[]
+  
+  // CV chứa danh sách TTr liên quan (self-referential relation)
+  linkedTtrs     Dispatch[]    @relation("CvToTtr")
+  linkedCv       Dispatch?     @relation("CvToTtr", fields: [linkedCvId], references: [id])
+  linkedCvId     String?
   
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt

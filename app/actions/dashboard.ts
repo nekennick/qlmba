@@ -51,7 +51,11 @@ export async function getDashboardStats(range?: { from?: Date, to?: Date }) {
                 }
             },
             include: {
-                dispatch: true
+                dispatch: {
+                    include: {
+                        linkedCv: true
+                    }
+                }
             }
         })
 
@@ -65,7 +69,7 @@ export async function getDashboardStats(range?: { from?: Date, to?: Date }) {
                 totalExported: exportCount,
                 unreturned: unreturnedCount,
             },
-            recentTransformers: recentTransformers.map(t => ({
+            recentTransformers: recentTransformers.map((t: any) => ({
                 id: t.id,
                 dispatchId: t.dispatch.id,
                 serialNumber: t.serialNumber,
@@ -75,6 +79,10 @@ export async function getDashboardStats(range?: { from?: Date, to?: Date }) {
                 dispatchNumber: t.dispatch.dispatchNumber,
                 date: t.dispatch.date,
                 type: t.dispatch.type,
+                documentType: t.dispatch.documentType,
+                linkedCv: t.dispatch.linkedCv ? {
+                    dispatchNumber: t.dispatch.linkedCv.dispatchNumber
+                } : null
             }))
         }
     } catch (error) {
