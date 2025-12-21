@@ -1,18 +1,18 @@
 "use client"
 
-import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Printer } from "lucide-react"
 import { toast } from "sonner"
 import { Table } from "@tanstack/react-table"
+import { useUnitStore } from "@/lib/store/unit-store"
+import { UNITS } from "@/lib/constants"
 
 interface ReportToolbarProps {
     table: Table<any>
 }
 
 export function ReportToolbar({ table }: ReportToolbarProps) {
-    const [unitName, setUnitName] = useState("Đội Quản lý điện Thanh Bình")
+    const { selectedUnit } = useUnitStore()
 
     const handlePrint = () => {
         // Get all filtered rows
@@ -23,9 +23,11 @@ export function ReportToolbar({ table }: ReportToolbarProps) {
             return
         }
 
-        // Extract IDs using the accessor or original object
-        // Assuming the data has 'id' field in original
+        // Extract IDs
         const ids = filteredRows.map(row => row.original.id)
+
+        // Get unit label
+        const unitName = UNITS.find(u => u.value === selectedUnit)?.label || ""
 
         // Save to localStorage
         const config = {
@@ -40,15 +42,6 @@ export function ReportToolbar({ table }: ReportToolbarProps) {
 
     return (
         <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2">
-                <span className="text-sm font-medium whitespace-nowrap hidden md:inline">Đơn vị:</span>
-                <Input
-                    value={unitName}
-                    onChange={(e) => setUnitName(e.target.value)}
-                    className="w-[250px] h-8 text-sm"
-                    placeholder="Nhập tên đơn vị..."
-                />
-            </div>
             <Button
                 variant="outline"
                 size="sm"

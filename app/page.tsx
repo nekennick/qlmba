@@ -11,9 +11,6 @@ import { ArrowUpCircle, ArrowDownCircle, Package, CalendarIcon, Printer } from "
 import { DataTable } from "@/components/ui/data-table"
 import { columns, Transformer } from "@/app/dashboard/columns"
 import { NotificationBell } from "@/components/dashboard/notification-bell"
-import { Calendar } from "@/components/ui/calendar"
-import { ReportToolbar } from "@/components/dashboard/report-toolbar"
-import { toast } from "sonner"
 import {
   Popover,
   PopoverContent,
@@ -24,6 +21,13 @@ import { format } from "date-fns"
 import { vi } from "date-fns/locale"
 import { DateRange } from "react-day-picker"
 import { ModeToggle } from "@/components/mode-toggle"
+import { Calendar } from "@/components/ui/calendar"
+import { ReportToolbar } from "@/components/dashboard/report-toolbar"
+import { toast } from "sonner"
+import { UnitSwitcher } from "@/components/dashboard/unit-switcher"
+import { useUnitStore } from "@/lib/store/unit-store"
+import { UNITS } from "@/lib/constants"
+// ...
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<any>({ totalImported: 0, totalExported: 0, unreturned: 0 })
@@ -31,14 +35,22 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [date, setDate] = useState<DateRange | undefined>()
 
+  const { selectedUnit } = useUnitStore()
+
   const loadData = async () => {
-    setLoading(true)
-    const data = await getDashboardStats(date)
-    if (data.success) {
-      setStats(data.stats)
-      setTransformers(data.recentTransformers as Transformer[] || [])
+    try {
+      setLoading(true)
+      const data = await getDashboardStats(date)
+      if (data.success) {
+        setStats(data.stats)
+        setTransformers(data.recentTransformers as Transformer[] || [])
+      }
+    } catch (error) {
+      console.error("Failed to load data", error)
+      toast.error("Lỗi tải dữ liệu")
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const handleExportReport = () => {
@@ -49,8 +61,8 @@ export default function DashboardPage() {
 
     // Use the 'from' date for the daily report
     const reportDate = date.from
-    const unitName = "Đội Quản lý điện Thanh Bình"
-    const url = `/report?date=${reportDate.toISOString()}&unit=${encodeURIComponent(unitName)}`
+    const unitLabel = UNITS.find(u => u.value === selectedUnit)?.label || ""
+    const url = `/report?date=${reportDate.toISOString()}&unit=${encodeURIComponent(unitLabel)}`
     window.open(url, '_blank')
   }
 
@@ -63,9 +75,10 @@ export default function DashboardPage() {
       <header className="h-16 border-b bg-card flex items-center justify-between px-6 shadow-sm">
         <div className="flex items-center gap-2">
           <Package className="w-6 h-6 text-primary" />
-          <h1 className="text-xl font-bold text-foreground">Quản Lý Giao Nhận MBA | www.khoatran.io.vn</h1>
+          <h1 className="text-xl font-bold text-foreground">Quản Lý Giao Nhận MBA</h1>
         </div>
         <div className="flex items-center gap-3">
+          <UnitSwitcher />
           <ModeToggle />
           <NotificationBell unreturnedCount={stats.unreturned} />
 

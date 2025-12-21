@@ -106,7 +106,28 @@ export const columns: ColumnDef<Transformer>[] = [
     },
     {
         accessorKey: "dispatchNumber",
-        header: "Số Công Văn",
+        header: ({ column }) => {
+            return (
+                <div className="flex flex-col gap-2 items-start py-2">
+                    <Button
+                        variant="ghost"
+                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                        className="px-0 h-auto font-semibold hover:bg-transparent"
+                    >
+                        Số Công Văn
+                        <ArrowUpDown className="ml-2 h-3 w-3" />
+                    </Button>
+                    <Input
+                        placeholder="Lọc số CV..."
+                        value={(column.getFilterValue() as string) ?? ""}
+                        onChange={(event) =>
+                            column.setFilterValue(event.target.value)
+                        }
+                        className="h-8 w-[120px]"
+                    />
+                </div>
+            )
+        },
         cell: ({ row }) => {
             const data = row.original
             const isImport = data.type === "IMPORT"

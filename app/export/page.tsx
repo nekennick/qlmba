@@ -37,6 +37,8 @@ import {
 } from "@/components/ui/popover"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { UNITS, CV_SUFFIX } from "@/lib/constants"
+import { useUnitStore } from "@/lib/store/unit-store"
 
 const transformerSchema = z.object({
     serialNumber: z.string().min(1, "Bắt buộc"),
@@ -48,6 +50,7 @@ const transformerSchema = z.object({
 const formSchema = z.object({
     dispatchNumber: z.string().min(1, "Số công văn là bắt buộc"),
     date: z.string().min(1, "Ngày là bắt buộc"),
+    documentType: z.enum(["CV", "TTr"]),
     transformers: z.array(transformerSchema).min(1, "Cần ít nhất 1 máy"),
 })
 
@@ -57,6 +60,8 @@ export default function ExportPage() {
     const [importDispatches, setImportDispatches] = useState<any[]>([])
     const [openCombobox, setOpenCombobox] = useState(false)
     const [selectedImportId, setSelectedImportId] = useState<string>("")
+    const [documentType, setDocumentType] = useState<"CV" | "TTr">("CV")
+    // Unit state is now managed globally by useUnitStore
 
     const router = useRouter()
 
@@ -65,6 +70,7 @@ export default function ExportPage() {
         defaultValues: {
             dispatchNumber: "",
             date: new Date().toISOString().split('T')[0],
+            documentType: "CV",
             transformers: [{ serialNumber: "", capacity: "", model: "", note: "" }],
         },
     })
@@ -101,9 +107,31 @@ export default function ExportPage() {
 
     const onSubmit = async (values: z.infer<typeof formSchema>) => {
         try {
-            const result = await createExportDispatch(values)
+            // Tự động thêm hậu tố vào số công văn
+            let dispatchNumberWithSuffix = values.dispatchNumber
+            if (values.documentType === "CV") {
+                // CV hậu tố: /PCĐT-KT+KHVT
+                if (!dispatchNumberWithSuffix.includes(CV_SUFFIX)) {
+                    dispatchNumberWithSuffix = `${values.dispatchNumber}${CV_SUFFIX}`
+                }
+            } else if (values.documentType === "TTr") {
+                // TTr hậu tố theo đơn vị (Global setting)
+                const currentUnit = useUnitStore.getState().selectedUnit
+                const selectedUnitObj = UNITS.find(u => u.value === currentUnit)
+                if (selectedUnitObj && !dispatchNumberWithSuffix.includes(selectedUnitObj.suffix)) {
+                    dispatchNumberWithSuffix = `${values.dispatchNumber}${selectedUnitObj.suffix}`
+                }
+            }
+
+            const payload = {
+                ...values,
+                dispatchNumber: dispatchNumberWithSuffix,
+            }
+
+            const result = await createExportDispatch(payload)
             if (result.success) {
-                toast.success("Đã lưu văn bản xuất thành công!")
+                const docTypeName = values.documentType === "CV" ? "Công Văn" : "Tờ Trình"
+                toast.success(`Đã lưu ${docTypeName} TRẢ thành công!`)
                 router.push('/')
                 router.refresh()
             } else {
@@ -260,6 +288,30 @@ export default function ExportPage() {
                                             </FormItem>
                                         )}
                                     />
+                                    <FormField
+                                        control={form.control}
+                                        name="documentType"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Loại chứng từ</FormLabel>
+                                                <FormControl>
+                                                    <select
+                                                        className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                                        value={field.value}
+                                                        onChange={(e) => {
+                                                            field.onChange(e.target.value)
+                                                            setDocumentType(e.target.value as "CV" | "TTr")
+                                                        }}
+                                                    >
+                                                        <option value="CV">Công Văn (CV) - Chứng từ chính thức</option>
+                                                        <option value="TTr">Tờ Trình (TTr) - Chứng từ tạm thời</option>
+                                                    </select>
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    {/* Đơn vị: Sử dụng cài đặt chung từ Dashboard */}
                                 </CardContent>
                             </Card>
 

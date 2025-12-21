@@ -17,6 +17,8 @@ const transformerSchema = z.object({
 const formSchema = z.object({
     dispatchNumber: z.string().min(1),
     date: z.string().min(1),
+    documentType: z.enum(["CV", "TTr"]).optional(),
+    unit: z.string().optional(),
     transformers: z.array(transformerSchema).min(1),
 })
 
@@ -27,7 +29,7 @@ export async function createExportDispatch(data: z.infer<typeof formSchema>) {
         return { success: false, error: "Dữ liệu không hợp lệ" }
     }
 
-    const { dispatchNumber, date, transformers } = result.data
+    const { dispatchNumber, date, documentType, transformers } = result.data
 
     try {
         // Save to DB
@@ -38,6 +40,7 @@ export async function createExportDispatch(data: z.infer<typeof formSchema>) {
                 dispatchNumber,
                 date: new Date(date),
                 type: "EXPORT",
+                documentType: documentType || "CV",
                 fileUrl: "", // TODO: Handle file upload
                 transformers: {
                     create: transformers.map(t => ({

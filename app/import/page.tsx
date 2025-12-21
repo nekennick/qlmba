@@ -34,6 +34,8 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { useRouter, useSearchParams } from "next/navigation"
+import { UNITS, CV_SUFFIX } from "@/lib/constants"
+import { useUnitStore } from "@/lib/store/unit-store"
 
 const transformerSchema = z.object({
     serialNumber: z.string().min(1, "Bắt buộc"),
@@ -83,6 +85,7 @@ export default function ImportPage() {
 
     // Use state for documentType to avoid re-render on every form change from form.watch()
     const [documentType, setDocumentType] = useState<"CV" | "TTr">("CV")
+    // Unit state is now managed globally by useUnitStore
 
     const hasLoadedEditData = useRef(false)
 
@@ -191,6 +194,11 @@ export default function ImportPage() {
         }
     }
 
+    // Filter unlinked TTrs: if any TTr is already selected/linked, hide others
+    const visibleUnlinkedTtrs = unlinkedTtrs.filter(ttr =>
+        selectedTtrIds.length === 0 || selectedTtrIds.includes(ttr.id)
+    )
+
     const onSubmit = async (values: z.infer<typeof formSchema>) => {
         try {
             let uploadedFileUrl = ""
@@ -207,8 +215,25 @@ export default function ImportPage() {
                 }
             }
 
+            // Tự động thêm hậu tố vào số công văn
+            let dispatchNumberWithSuffix = values.dispatchNumber
+            if (values.documentType === "CV") {
+                // CV hậu tố: /PCĐT-KT+KHVT
+                if (!dispatchNumberWithSuffix.includes(CV_SUFFIX)) {
+                    dispatchNumberWithSuffix = `${values.dispatchNumber}${CV_SUFFIX}`
+                }
+            } else if (values.documentType === "TTr") {
+                // TTr hậu tố theo đơn vị (Global setting)
+                const currentUnit = useUnitStore.getState().selectedUnit
+                const selectedUnitObj = UNITS.find(u => u.value === currentUnit)
+                if (selectedUnitObj && !dispatchNumberWithSuffix.includes(selectedUnitObj.suffix)) {
+                    dispatchNumberWithSuffix = `${values.dispatchNumber}${selectedUnitObj.suffix}`
+                }
+            }
+
             const payload = {
                 ...values,
+                dispatchNumber: dispatchNumberWithSuffix,
                 fileUrl: uploadedFileUrl || pdfFile || "",
                 linkedTtrIds: values.linkedTtrIds || [],
             }
@@ -463,6 +488,7 @@ export default function ImportPage() {
                                             </FormItem>
                                         )}
                                     />
+                                    {/* Đơn vị: Sử dụng cài đặt chung từ Dashboard */}
                                 </CardContent>
                             </Card>
 
@@ -497,19 +523,19 @@ export default function ImportPage() {
                             )}
 
                             {/* Liên kết TTr (chỉ hiển thị khi loại chứng từ là CV) */}
-                            {documentType === "CV" && unlinkedTtrs.length > 0 && (
+                            {documentType === "CV" && visibleUnlinkedTtrs.length > 0 && (
                                 <Card className="bg-card border-blue-200 dark:border-blue-800">
                                     <CardHeader className="py-3 bg-blue-50/50 dark:bg-blue-900/20 border-b">
                                         <CardTitle className="text-sm font-medium flex items-center gap-2">
                                             <Link2 className="w-4 h-4 text-blue-600" />
-                                            Liên kết Tờ Trình ({selectedTtrIds.length} đã chọn)
+                                            Liên kết Tờ Trình ({visibleUnlinkedTtrs.filter(t => selectedTtrIds.includes(t.id)).length} đã chọn)
                                         </CardTitle>
                                         <CardDescription>
                                             Chọn các Tờ Trình đã nhận trước đó để liên kết với Công Văn này
                                         </CardDescription>
                                     </CardHeader>
                                     <CardContent className="pt-4 space-y-2">
-                                        {unlinkedTtrs.map((ttr) => (
+                                        {visibleUnlinkedTtrs.map((ttr) => (
                                             <div
                                                 key={ttr.id}
                                                 className={`flex items-center gap-3 p-3 border rounded-md transition-colors ${selectedTtrIds.includes(ttr.id)
@@ -567,34 +593,36 @@ export default function ImportPage() {
                                         </CardDescription>
                                     </CardHeader>
                                     <CardContent className="pt-4">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <FormField
-                                                control={form.control}
-                                                name="linkedCvNumber"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Số Công Văn chính thức</FormLabel>
-                                                        <FormControl>
-                                                            <Input placeholder="VD: 123/CV-PC07" {...field} />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                            <FormField
-                                                control={form.control}
-                                                name="linkedCvDate"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Ngày Công Văn</FormLabel>
-                                                        <FormControl>
-                                                            <Input type="date" {...field} />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </div>
+                                        {!linkedCvInfo && (
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <FormField
+                                                    control={form.control}
+                                                    name="linkedCvNumber"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Số Công Văn chính thức</FormLabel>
+                                                            <FormControl>
+                                                                <Input placeholder="VD: 123/CV-PC07" {...field} />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                <FormField
+                                                    control={form.control}
+                                                    name="linkedCvDate"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Ngày Công Văn</FormLabel>
+                                                            <FormControl>
+                                                                <Input type="date" {...field} />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
+                                        )}
                                         <p className="text-xs text-muted-foreground mt-3">
                                             Khi lưu, hệ thống sẽ tự động tạo CV chính thức và liên kết với TTr này
                                         </p>
