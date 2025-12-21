@@ -89,10 +89,20 @@ export default function ExportPage() {
     }, [])
 
     const handleSelectImport = (dispatch: any) => {
-        setSelectedImportId(dispatch.id === selectedImportId ? "" : dispatch.id)
-        if (dispatch.id !== selectedImportId && dispatch.fileUrl) {
-            setPdfFile(dispatch.fileUrl)
-            toast.info(`Đã chọn nguồn: ${dispatch.dispatchNumber}`)
+        const isSelected = dispatch.id !== selectedImportId
+        setSelectedImportId(isSelected ? dispatch.id : "")
+        if (isSelected) {
+            // Auto-fill from source
+            form.setValue("dispatchNumber", dispatch.dispatchNumber)
+            form.setValue("date", new Date(dispatch.date).toISOString().split('T')[0])
+            const docType = (dispatch.documentType as "CV" | "TTr") || "CV"
+            form.setValue("documentType", docType)
+            setDocumentType(docType)
+
+            if (dispatch.fileUrl) {
+                setPdfFile(dispatch.fileUrl)
+                toast.info(`Đã chọn nguồn: ${dispatch.dispatchNumber}`)
+            }
         }
         setOpenCombobox(false)
     }
@@ -107,19 +117,21 @@ export default function ExportPage() {
 
     const onSubmit = async (values: z.infer<typeof formSchema>) => {
         try {
-            // Tự động thêm hậu tố vào số công văn
+            // Tự động thêm hậu tố vào số công văn (chỉ khi không chọn nguồn từ CV có sẵn)
             let dispatchNumberWithSuffix = values.dispatchNumber
-            if (values.documentType === "CV") {
-                // CV hậu tố: /PCĐT-KT+KHVT
-                if (!dispatchNumberWithSuffix.includes(CV_SUFFIX)) {
-                    dispatchNumberWithSuffix = `${values.dispatchNumber}${CV_SUFFIX}`
-                }
-            } else if (values.documentType === "TTr") {
-                // TTr hậu tố theo đơn vị (Global setting)
-                const currentUnit = useUnitStore.getState().selectedUnit
-                const selectedUnitObj = UNITS.find(u => u.value === currentUnit)
-                if (selectedUnitObj && !dispatchNumberWithSuffix.includes(selectedUnitObj.suffix)) {
-                    dispatchNumberWithSuffix = `${values.dispatchNumber}${selectedUnitObj.suffix}`
+            if (!selectedImportId) {
+                if (values.documentType === "CV") {
+                    // CV hậu tố: /PCĐT-KT+KHVT
+                    if (!dispatchNumberWithSuffix.includes(CV_SUFFIX)) {
+                        dispatchNumberWithSuffix = `${values.dispatchNumber}${CV_SUFFIX}`
+                    }
+                } else if (values.documentType === "TTr") {
+                    // TTr hậu tố theo đơn vị (Global setting)
+                    const currentUnit = useUnitStore.getState().selectedUnit
+                    const selectedUnitObj = UNITS.find(u => u.value === currentUnit)
+                    if (selectedUnitObj && !dispatchNumberWithSuffix.includes(selectedUnitObj.suffix)) {
+                        dispatchNumberWithSuffix = `${values.dispatchNumber}${selectedUnitObj.suffix}`
+                    }
                 }
             }
 
@@ -266,7 +278,7 @@ export default function ExportPage() {
                                         control={form.control}
                                         name="dispatchNumber"
                                         render={({ field }) => (
-                                            <FormItem>
+                                            <FormItem className={selectedImportId ? "hidden" : ""}>
                                                 <FormLabel>Số công văn trả</FormLabel>
                                                 <FormControl>
                                                     <Input placeholder="VD: 123/CV-P4" {...field} />
