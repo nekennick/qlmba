@@ -54,6 +54,7 @@ const formSchema = z.object({
     date: z.string().min(1, "Ngày là bắt buộc"),
     transactionDate: z.string().optional(),
     documentType: z.enum(["CV", "TTr"]),
+    isCBM: z.boolean().optional(),
     transformers: z.array(transformerSchema).min(1, "Cần ít nhất 1 máy"),
 })
 
@@ -64,6 +65,7 @@ export default function ExportPage() {
     const [openCombobox, setOpenCombobox] = useState(false)
     const [selectedImportId, setSelectedImportId] = useState<string>("")
     const [documentType, setDocumentType] = useState<"CV" | "TTr">("CV")
+    const [isCBM, setIsCBM] = useState(false)
     // Unit state is now managed globally by useUnitStore
 
     const router = useRouter()
@@ -78,6 +80,7 @@ export default function ExportPage() {
             date: new Date().toISOString().split('T')[0],
             transactionDate: new Date().toISOString().split('T')[0],
             documentType: "CV",
+            isCBM: false,
             transformers: [{ serialNumber: "", capacity: "", model: "", note: "" }],
         },
     })
@@ -105,6 +108,7 @@ export default function ExportPage() {
                         date: data.date,
                         transactionDate: data.transactionDate || new Date().toISOString().split('T')[0],
                         documentType: (data.documentType as "CV" | "TTr") || "CV",
+                        isCBM: data.isCBM || false,
                         transformers: data.transformers.map(t => ({
                             serialNumber: t.serialNumber,
                             capacity: t.capacity,
@@ -113,6 +117,7 @@ export default function ExportPage() {
                         })),
                     })
                     setDocumentType((data.documentType as "CV" | "TTr") || "CV")
+                    setIsCBM(data.isCBM || false)
                     if (data.fileUrl) {
                         setPdfFile(data.fileUrl)
                     }
@@ -158,15 +163,21 @@ export default function ExportPage() {
             // Tự động thêm hậu tố vào số công văn (chỉ khi không chọn nguồn từ CV có sẵn)
             let dispatchNumberWithSuffix = values.dispatchNumber
             if (!selectedImportId) {
-                if (values.documentType === "CV") {
+                const currentUnit = useUnitStore.getState().selectedUnit
+                const selectedUnitObj = UNITS.find(u => u.value === currentUnit)
+
+                if (isCBM) {
+                    // CBM hậu tố theo đơn vị: /ĐTB-KT
+                    if (selectedUnitObj && !dispatchNumberWithSuffix.includes(selectedUnitObj.cbmSuffix)) {
+                        dispatchNumberWithSuffix = `${values.dispatchNumber}${selectedUnitObj.cbmSuffix}`
+                    }
+                } else if (values.documentType === "CV") {
                     // CV hậu tố: /PCĐT-KT+KHVT
                     if (!dispatchNumberWithSuffix.includes(CV_SUFFIX)) {
                         dispatchNumberWithSuffix = `${values.dispatchNumber}${CV_SUFFIX}`
                     }
                 } else if (values.documentType === "TTr") {
                     // TTr hậu tố theo đơn vị (Global setting)
-                    const currentUnit = useUnitStore.getState().selectedUnit
-                    const selectedUnitObj = UNITS.find(u => u.value === currentUnit)
                     if (selectedUnitObj && !dispatchNumberWithSuffix.includes(selectedUnitObj.suffix)) {
                         dispatchNumberWithSuffix = `${values.dispatchNumber}${selectedUnitObj.suffix}`
                     }
@@ -177,6 +188,7 @@ export default function ExportPage() {
                 ...values,
                 dispatchNumber: dispatchNumberWithSuffix,
                 sourceDispatchId: selectedImportId || undefined,
+                isCBM: isCBM,
             }
 
             if (isEditMode && editId) {
@@ -292,7 +304,7 @@ export default function ExportPage() {
                                 </CardHeader>
                                 <CardContent className="grid grid-cols-2 gap-4 pt-4">
                                     <FormItem className="flex flex-col">
-                                        <FormLabel>Chọn công văn nhập (nguồn)</FormLabel>
+                                        <FormLabel>Tải từ CV đã nhập (tùy chọn)</FormLabel>
                                         <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
                                             <PopoverTrigger asChild>
                                                 <Button
@@ -332,19 +344,19 @@ export default function ExportPage() {
                                         </Popover>
                                     </FormItem>
 
-                                    {/* <FormField
+                                    <FormField
                                         control={form.control}
                                         name="dispatchNumber"
                                         render={({ field }) => (
-                                            <FormItem className={selectedImportId ? "hidden" : ""}>
-                                                <FormLabel>Số công văn trả</FormLabel>
+                                            <FormItem>
+                                                <FormLabel>Số công văn TRẢ</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="VD: 123/CV-P4" {...field} />
+                                                    <Input placeholder="VD: 123" {...field} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
-                                    /> */}
+                                    />
                                     <FormField
                                         control={form.control}
                                         name="date"
@@ -395,6 +407,27 @@ export default function ExportPage() {
                                             </FormItem>
                                         )}
                                     />
+                                    {/* Checkbox CBM - Gửi máy đi thí nghiệm */}
+                                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-3 bg-amber-50 dark:bg-amber-950/30">
+                                        <input
+                                            type="checkbox"
+                                            id="cbm-checkbox"
+                                            checked={isCBM}
+                                            onChange={(e) => {
+                                                setIsCBM(e.target.checked)
+                                                form.setValue("isCBM", e.target.checked)
+                                            }}
+                                            className="h-4 w-4 rounded border-amber-500 text-amber-600 focus:ring-amber-500"
+                                        />
+                                        <div className="space-y-1 leading-none">
+                                            <label htmlFor="cbm-checkbox" className="text-sm font-medium cursor-pointer text-amber-800 dark:text-amber-200">
+                                                CBM - Đề nghị thí nghiệm
+                                            </label>
+                                            <p className="text-xs text-muted-foreground">
+                                                Gửi máy đi thí nghiệm (hậu tố: /ĐỘI-KT)
+                                            </p>
+                                        </div>
+                                    </FormItem>
                                     {/* Đơn vị: Sử dụng cài đặt chung từ Dashboard */}
                                 </CardContent>
                             </Card>

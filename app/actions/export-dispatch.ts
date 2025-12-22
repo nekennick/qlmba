@@ -19,6 +19,7 @@ const formSchema = z.object({
     date: z.string().min(1),
     transactionDate: z.string().optional(),
     documentType: z.enum(["CV", "TTr"]).optional(),
+    isCBM: z.boolean().optional(),
     unit: z.string().optional(),
     transformers: z.array(transformerSchema).min(1),
     sourceDispatchId: z.string().optional(),
@@ -31,7 +32,7 @@ export async function createExportDispatch(data: z.infer<typeof formSchema>) {
         return { success: false, error: "Dữ liệu không hợp lệ" }
     }
 
-    const { dispatchNumber, date, documentType, transformers, sourceDispatchId, transactionDate } = result.data
+    const { dispatchNumber, date, documentType, transformers, sourceDispatchId, transactionDate, isCBM } = result.data
 
     try {
         // Save to DB
@@ -44,6 +45,7 @@ export async function createExportDispatch(data: z.infer<typeof formSchema>) {
                 transactionDate: transactionDate ? new Date(transactionDate) : undefined,
                 type: "EXPORT",
                 documentType: documentType || "CV",
+                isCBM: isCBM || false,
                 sourceDispatchId: result.data.sourceDispatchId,
                 fileUrl: "", // TODO: Handle file upload
                 transformers: {

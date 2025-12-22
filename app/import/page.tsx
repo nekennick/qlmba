@@ -10,6 +10,7 @@ import { toast } from "sonner"
 import { createImportDispatch, searchDispatches } from "@/app/actions/import-dispatch"
 import { uploadFile } from "@/app/actions/upload"
 import { getUnlinkedTtrs } from "@/app/actions/get-unlinked-ttrs"
+import { getExportCBMDispatches } from "@/app/actions/get-dispatches"
 import { getDispatchById } from "@/app/actions/get-dispatch"
 import { updateDispatch } from "@/app/actions/update-dispatch"
 
@@ -70,6 +71,9 @@ export default function ImportPage() {
     const [selectedTtrIds, setSelectedTtrIds] = useState<string[]>([])
     const [previewTtr, setPreviewTtr] = useState<{ id: string; dispatchNumber: string; date: string; fileUrl: string | null; transformers: any[] } | null>(null)
     const [linkedTtrsInfo, setLinkedTtrsInfo] = useState<{ id: string; dispatchNumber: string; date: string }[]>([])
+    const [cbmDispatches, setCbmDispatches] = useState<any[]>([])
+    const [selectedCbmId, setSelectedCbmId] = useState<string>("")
+    const [isCbmReturn, setIsCbmReturn] = useState(false)
     const router = useRouter()
     const searchParams = useSearchParams()
 
@@ -160,6 +164,13 @@ export default function ImportPage() {
         }
     }, [documentType])
 
+    // Fetch CBM dispatches (for receiving back tested transformers)
+    useEffect(() => {
+        getExportCBMDispatches().then((data) => {
+            setCbmDispatches(data)
+        })
+    }, [])
+
     const { fields, append, remove, replace } = useFieldArray({
         control: form.control,
         name: "transformers",
@@ -201,6 +212,38 @@ export default function ImportPage() {
     const visibleUnlinkedTtrs = unlinkedTtrs.filter(ttr =>
         selectedTtrIds.length === 0 || selectedTtrIds.includes(ttr.id)
     )
+
+    // Handle selecting a CBM dispatch to receive back tested transformers
+    const handleSelectCbm = (dispatch: any) => {
+        const isSelected = dispatch.id !== selectedCbmId
+        setSelectedCbmId(isSelected ? dispatch.id : "")
+        setIsCbmReturn(isSelected)
+
+        if (isSelected) {
+            // Auto-fill from CBM dispatch
+            form.setValue("dispatchNumber", dispatch.dispatchNumber || "")
+            form.setValue("date", new Date(dispatch.date).toISOString().split('T')[0])
+            form.setValue("documentType", "CV") // CBM return is always CV type
+            setDocumentType("CV")
+
+            // Load transformers from CBM dispatch
+            if (dispatch.transformers && dispatch.transformers.length > 0) {
+                const loadedTransformers = dispatch.transformers.map((t: any) => ({
+                    serialNumber: t.serialNumber,
+                    capacity: t.capacity || "",
+                    model: t.model || "",
+                    note: t.note || "",
+                }))
+                replace(loadedTransformers)
+            }
+
+            if (dispatch.fileUrl) {
+                setPdfFile(dispatch.fileUrl)
+            }
+
+            toast.info(`Đã chọn CV CBM: ${dispatch.dispatchNumber}`)
+        }
+    }
 
     const onSubmit = async (values: z.infer<typeof formSchema>) => {
         try {
@@ -507,6 +550,50 @@ export default function ImportPage() {
                                     {/* Đơn vị: Sử dụng cài đặt chung từ Dashboard */}
                                 </CardContent>
                             </Card>
+
+                            {/* Chọn CV CBM để nhận máy thí nghiệm về */}
+                            {!isEditMode && cbmDispatches.length > 0 && (
+                                <Card className="bg-card border-orange-200 dark:border-orange-800">
+                                    <CardHeader className="py-3 bg-orange-50/50 dark:bg-orange-900/20 border-b">
+                                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                                            <FileText className="w-4 h-4 text-orange-600" />
+                                            Nhận máy thí nghiệm CBM về ({cbmDispatches.length} CV đang chờ)
+                                        </CardTitle>
+                                        <CardDescription>
+                                            Chọn CV CBM đã gửi đi thí nghiệm để nhận máy về
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="pt-4 space-y-2">
+                                        {cbmDispatches.map((cbm) => (
+                                            <div
+                                                key={cbm.id}
+                                                className={`flex items-center gap-3 p-3 border rounded-md cursor-pointer transition-colors ${selectedCbmId === cbm.id
+                                                    ? "bg-orange-50 border-orange-300 dark:bg-orange-900/30 dark:border-orange-700"
+                                                    : "hover:bg-muted/50"
+                                                    }`}
+                                                onClick={() => handleSelectCbm(cbm)}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name="cbm-select"
+                                                    checked={selectedCbmId === cbm.id}
+                                                    onChange={() => handleSelectCbm(cbm)}
+                                                    className="h-4 w-4 border-orange-500 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                                                />
+                                                <div className="flex-1">
+                                                    <div className="font-medium flex items-center gap-2">
+                                                        {cbm.dispatchNumber}
+                                                        <span className="text-xs px-1.5 py-0.5 bg-orange-500 text-white rounded">CBM</span>
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {new Date(cbm.date).toLocaleDateString("vi-VN")} - {cbm.transformerCount} máy
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </CardContent>
+                                </Card>
+                            )}
 
                             {/* Hiển thị TTr đã liên kết (khi edit CV) */}
                             {isEditMode && documentType === "CV" && linkedTtrsInfo.length > 0 && (

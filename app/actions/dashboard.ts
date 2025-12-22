@@ -83,6 +83,7 @@ export async function getDashboardStats(range?: { from?: Date, to?: Date }) {
                 date: t.dispatch.transactionDate || t.dispatch.date,
                 type: t.dispatch.type,
                 documentType: t.dispatch.documentType,
+                isCBM: t.dispatch.isCBM,
                 linkedCv: t.dispatch.linkedCv ? {
                     dispatchNumber: t.dispatch.linkedCv.dispatchNumber
                 } : null

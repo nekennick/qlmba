@@ -13,6 +13,7 @@ model Dispatch {
   fileUrl        String?
   type           String        // IMPORT | EXPORT
   documentType   String        @default("CV") // CV | TTr
+  isCBM          Boolean       @default(false) // True nếu là CV thí nghiệm CBM
   date           DateTime      @default(now())
   transactionDate DateTime?    // Ngày nhận (Import) hoặc Ngày trả (Export)
   

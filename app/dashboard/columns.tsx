@@ -24,6 +24,7 @@ export type Transformer = {
     date: Date
     type: "IMPORT" | "EXPORT"
     documentType?: "CV" | "TTr"
+    isCBM?: boolean
     linkedCv?: {
         dispatchNumber: string
     } | null
@@ -140,6 +141,11 @@ export const columns: ColumnDef<Transformer>[] = [
                         <Badge variant={docType === "CV" ? "default" : "secondary"} className={docType === "CV" ? "bg-blue-600 hover:bg-blue-700 h-5 px-1.5" : "bg-amber-600 hover:bg-amber-700 text-white h-5 px-1.5"}>
                             {docType}
                         </Badge>
+                        {data.isCBM && (
+                            <Badge className="bg-orange-500 hover:bg-orange-600 text-white h-5 px-1.5">
+                                CBM
+                            </Badge>
+                        )}
                     </div>
 
                     {/* Show linking info if any */}
