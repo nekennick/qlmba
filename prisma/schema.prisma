@@ -39,6 +39,7 @@ model Transformer {
   capacity     String?
   model        String?
   note         String?
+  testResult   String?   // PASS | FAIL | null - Kết quả thí nghiệm CBM
   
   dispatchId   String
   dispatch     Dispatch  @relation(fields: [dispatchId], references: [id], onDelete: Cascade)

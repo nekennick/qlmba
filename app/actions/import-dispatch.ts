@@ -9,6 +9,7 @@ const transformerSchema = z.object({
     capacity: z.string().min(1, "Bắt buộc"),
     model: z.string().optional(),
     note: z.string().optional(),
+    testResult: z.enum(["PASS", "FAIL"]).optional(), // Kết quả thí nghiệm CBM
 })
 
 const formSchema = z.object({
@@ -18,6 +19,8 @@ const formSchema = z.object({
     fileUrl: z.string().optional(),
     documentType: z.enum(["CV", "TTr"]).default("CV"),
     linkedTtrIds: z.array(z.string()).optional(), // IDs của các TTr cần liên kết (chỉ dùng khi documentType = CV)
+    sourceDispatchId: z.string().optional(), // ID của CBM đang nhận về
+    isCBM: z.boolean().optional(), // True nếu nhận CBM về
     transformers: z.array(transformerSchema).min(1),
 })
 
@@ -52,7 +55,7 @@ export async function createImportDispatch(data: z.infer<typeof formSchema>) {
         return { success: false, error: "Dữ liệu không hợp lệ" }
     }
 
-    const { dispatchNumber, date, transformers, fileUrl, documentType, linkedTtrIds, transactionDate } = result.data
+    const { dispatchNumber, date, transformers, fileUrl, documentType, linkedTtrIds, transactionDate, sourceDispatchId, isCBM } = result.data
 
     try {
         // Tạo dispatch mới
@@ -63,13 +66,16 @@ export async function createImportDispatch(data: z.infer<typeof formSchema>) {
                 transactionDate: transactionDate ? new Date(transactionDate) : undefined,
                 type: "IMPORT",
                 documentType: documentType || "CV",
+                isCBM: isCBM || !!sourceDispatchId, // Đánh dấu CBM nếu nhận CBM về
                 fileUrl: fileUrl || "",
+                sourceDispatchId: sourceDispatchId || undefined, // Liên kết với CBM nếu nhận CBM về
                 transformers: {
                     create: transformers.map(t => ({
                         serialNumber: t.serialNumber,
                         capacity: t.capacity,
                         model: t.model,
                         note: t.note,
+                        testResult: t.testResult, // Lưu kết quả thí nghiệm
                     }))
                 }
             }

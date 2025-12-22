@@ -43,6 +43,7 @@ const transformerSchema = z.object({
     capacity: z.string().min(1, "Bắt buộc"),
     model: z.string().optional(),
     note: z.string().optional(),
+    testResult: z.enum(["PASS", "FAIL"]).optional(), // Kết quả thí nghiệm CBM
 })
 
 const formSchema = z.object({
@@ -263,7 +264,14 @@ export default function ImportPage() {
 
             // Tự động thêm hậu tố vào số công văn
             let dispatchNumberWithSuffix = values.dispatchNumber
-            if (values.documentType === "CV") {
+            if (isCbmReturn) {
+                // CBM hậu tố theo đơn vị: /ĐỘI-KT
+                const currentUnit = useUnitStore.getState().selectedUnit
+                const selectedUnitObj = UNITS.find(u => u.value === currentUnit)
+                if (selectedUnitObj && !dispatchNumberWithSuffix.includes(selectedUnitObj.cbmSuffix)) {
+                    dispatchNumberWithSuffix = `${values.dispatchNumber}${selectedUnitObj.cbmSuffix}`
+                }
+            } else if (values.documentType === "CV") {
                 // CV hậu tố: /PCĐT-KT+KHVT
                 if (!dispatchNumberWithSuffix.includes(CV_SUFFIX)) {
                     dispatchNumberWithSuffix = `${values.dispatchNumber}${CV_SUFFIX}`
@@ -282,6 +290,8 @@ export default function ImportPage() {
                 dispatchNumber: dispatchNumberWithSuffix,
                 fileUrl: uploadedFileUrl || pdfFile || "",
                 linkedTtrIds: values.linkedTtrIds || [],
+                sourceDispatchId: isCbmReturn ? selectedCbmId : undefined, // Liên kết với CBM nếu nhận về
+                isCBM: isCbmReturn, // Đánh dấu là CBM nếu nhận CBM về
             }
 
             let result
@@ -820,6 +830,35 @@ export default function ImportPage() {
                                                     </FormItem>
                                                 )}
                                             />
+
+                                            {/* Kết quả thí nghiệm - chỉ hiển thị khi nhận CBM về */}
+                                            {isCbmReturn && (
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`transformers.${index}.testResult`}
+                                                    render={({ field }) => (
+                                                        <FormItem className="w-28">
+                                                            <FormControl>
+                                                                <select
+                                                                    className={`flex h-9 w-full items-center justify-between rounded-md border px-3 py-2 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${field.value === "PASS"
+                                                                        ? "border-green-500 bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                                                        : field.value === "FAIL"
+                                                                            ? "border-red-500 bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                                                            : "border-input bg-transparent"
+                                                                        }`}
+                                                                    value={field.value || ""}
+                                                                    onChange={(e) => field.onChange(e.target.value || undefined)}
+                                                                >
+                                                                    <option value="">KQ TN</option>
+                                                                    <option value="PASS">✓ Đạt</option>
+                                                                    <option value="FAIL">✗ Không đạt</option>
+                                                                </select>
+                                                            </FormControl>
+                                                            <FormMessage className="text-xs" />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            )}
 
                                             <Button
                                                 type="button"

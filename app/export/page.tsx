@@ -8,7 +8,7 @@ import { Upload, Plus, Trash2, Save, Check, ChevronsUpDown, ArrowLeft } from "lu
 import Link from "next/link"
 import { toast } from "sonner"
 import { createExportDispatch } from "@/app/actions/export-dispatch"
-import { getImportDispatches } from "@/app/actions/get-dispatches"
+import { getImportDispatches, getFailedCBMTransformers } from "@/app/actions/get-dispatches"
 import { getDispatchById } from "@/app/actions/get-dispatch"
 import { updateDispatch } from "@/app/actions/update-dispatch"
 
@@ -66,6 +66,7 @@ export default function ExportPage() {
     const [selectedImportId, setSelectedImportId] = useState<string>("")
     const [documentType, setDocumentType] = useState<"CV" | "TTr">("CV")
     const [isCBM, setIsCBM] = useState(false)
+    const [failedCbmMachines, setFailedCbmMachines] = useState<any[]>([]) // Máy CBM không đạt thí nghiệm
     // Unit state is now managed globally by useUnitStore
 
     const router = useRouter()
@@ -95,7 +96,12 @@ export default function ExportPage() {
             const data = await getImportDispatches()
             setImportDispatches(data)
         }
+        const fetchFailedMachines = async () => {
+            const data = await getFailedCBMTransformers()
+            setFailedCbmMachines(data)
+        }
         fetchImports()
+        fetchFailedMachines()
     }, [])
 
     useEffect(() => {
@@ -432,6 +438,61 @@ export default function ExportPage() {
                                 </CardContent>
                             </Card>
 
+                            {/* Máy CBM không đạt - gợi ý thêm vào danh sách trả */}
+                            {failedCbmMachines.length > 0 && (
+                                <Card className="bg-card border-red-200 dark:border-red-800">
+                                    <CardHeader className="py-3 bg-red-50/50 dark:bg-red-900/20 border-b">
+                                        <CardTitle className="text-sm font-medium flex items-center gap-2 text-red-700 dark:text-red-400">
+                                            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                                            Máy CBM không đạt thí nghiệm ({failedCbmMachines.length})
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="pt-4 space-y-2">
+                                        <p className="text-xs text-muted-foreground mb-3">
+                                            Những máy này đã thí nghiệm CBM nhưng không đạt. Click để thêm vào danh sách trả:
+                                        </p>
+                                        {failedCbmMachines.map((machine) => (
+                                            <div
+                                                key={machine.id}
+                                                className="flex items-center justify-between p-3 border border-red-200 dark:border-red-800 rounded-md bg-red-50/30 dark:bg-red-900/10 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                            >
+                                                <div className="flex-1">
+                                                    <div className="font-medium text-sm">
+                                                        {machine.serialNumber}
+                                                        <span className="ml-2 text-xs px-1.5 py-0.5 bg-red-500 text-white rounded">FAIL</span>
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {machine.capacity} - {machine.model || "Không xác định"} |
+                                                        <span className="ml-1 text-red-600 dark:text-red-400">
+                                                            CV: {machine.dispatchNumber}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="gap-1 h-7 text-xs border-red-300 hover:bg-red-100 dark:hover:bg-red-900/30"
+                                                    onClick={() => {
+                                                        append({
+                                                            serialNumber: machine.serialNumber,
+                                                            capacity: machine.capacity || "",
+                                                            model: machine.model || "",
+                                                            note: `CBM FAIL - ${machine.dispatchNumber}`,
+                                                        })
+                                                        // Remove from list after adding
+                                                        setFailedCbmMachines(prev => prev.filter(m => m.id !== machine.id))
+                                                        toast.success(`Đã thêm máy ${machine.serialNumber} vào danh sách trả`)
+                                                    }}
+                                                >
+                                                    <Plus className="w-3 h-3" /> Thêm
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </CardContent>
+                                </Card>
+                            )}
+
                             {/* Danh sách máy */}
                             <Card className="bg-card">
                                 <CardHeader className="py-3 bg-muted/40 border-b flex flex-row items-center justify-between space-y-0">
@@ -546,7 +607,6 @@ export default function ExportPage() {
 
                                 </CardContent>
                             </Card>
-
                         </form>
                     </Form>
                 </ScrollArea>
