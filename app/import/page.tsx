@@ -13,6 +13,7 @@ import { getUnlinkedTtrs } from "@/app/actions/get-unlinked-ttrs"
 import { getExportCBMDispatches } from "@/app/actions/get-dispatches"
 import { getDispatchById } from "@/app/actions/get-dispatch"
 import { updateDispatch } from "@/app/actions/update-dispatch"
+import { checkDuplicateSerials } from "@/app/actions/validate-serial"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -107,6 +108,12 @@ export default function ImportPage() {
             getDispatchById(editParam).then((result) => {
                 if (result.success && result.data) {
                     const data = result.data
+
+                    // Kiểm tra nếu là CBM thì set isCbmReturn để hiển thị dropdown testResult
+                    if (data.isCBM) {
+                        setIsCbmReturn(true)
+                    }
+
                     form.reset({
                         dispatchNumber: data.dispatchNumber || "",
                         date: data.date,
@@ -118,6 +125,7 @@ export default function ImportPage() {
                             capacity: t.capacity,
                             model: t.model,
                             note: t.note,
+                            testResult: t.testResult as "PASS" | "FAIL" | undefined, // Load testResult từ DB
                         })),
                     })
                     // Sync documentType state
@@ -153,17 +161,18 @@ export default function ImportPage() {
 
     const hasFetchedTtrs = useRef(false)
 
-    // Fetch unlinked TTrs when documentType is CV (only once)
+    // Fetch unlinked TTrs on mount (để sẵn data khi user chọn CV)
     useEffect(() => {
-        if (documentType === "CV" && !hasFetchedTtrs.current) {
+        if (!hasFetchedTtrs.current) {
             hasFetchedTtrs.current = true
             getUnlinkedTtrs().then((result) => {
                 if (result.success && result.data) {
                     setUnlinkedTtrs(result.data)
+                    console.log("Fetched unlinked TTrs:", result.data.length)
                 }
             })
         }
-    }, [documentType])
+    }, [])
 
     // Fetch CBM dispatches (for receiving back tested transformers)
     useEffect(() => {
@@ -227,13 +236,14 @@ export default function ImportPage() {
             form.setValue("documentType", "CV") // CBM return is always CV type
             setDocumentType("CV")
 
-            // Load transformers from CBM dispatch
+            // Load transformers from CBM dispatch với testResult = PASS mặc định
             if (dispatch.transformers && dispatch.transformers.length > 0) {
                 const loadedTransformers = dispatch.transformers.map((t: any) => ({
                     serialNumber: t.serialNumber,
                     capacity: t.capacity || "",
                     model: t.model || "",
                     note: t.note || "",
+                    testResult: "PASS" as const, // Mặc định là ĐẠT
                 }))
                 replace(loadedTransformers)
             }
@@ -259,6 +269,17 @@ export default function ImportPage() {
                 } else {
                     toast.error("Lỗi upload file PDF")
                     return
+                }
+            }
+
+            // Kiểm tra serial number trùng lặp (chỉ kiểm tra khi tạo mới, không kiểm tra CBM)
+            if (!isEditMode && !isCbmReturn) {
+                const serials = values.transformers.map(t => t.serialNumber)
+                const { duplicates } = await checkDuplicateSerials(serials, "IMPORT", false)
+                if (duplicates.length > 0) {
+                    const dupList = duplicates.map(d => `${d.serialNumber} (${d.dispatchNumber})`).join(", ")
+                    const proceed = confirm(`Cảnh báo: Các số máy sau đã tồn tại trong hệ thống:\n${dupList}\n\nBạn có muốn tiếp tục lưu không?`)
+                    if (!proceed) return
                 }
             }
 
@@ -635,58 +656,74 @@ export default function ImportPage() {
                                 </Card>
                             )}
 
-                            {/* Liên kết TTr (chỉ hiển thị khi loại chứng từ là CV) */}
-                            {documentType === "CV" && visibleUnlinkedTtrs.length > 0 && (
-                                <Card className="bg-card border-blue-200 dark:border-blue-800">
-                                    <CardHeader className="py-3 bg-blue-50/50 dark:bg-blue-900/20 border-b">
+                            {/* Liên kết TTr (chỉ hiển thị khi loại chứng từ là CV và không phải edit mode) */}
+                            {documentType === "CV" && !isEditMode && (
+                                <Card className={`bg-card ${unlinkedTtrs.length > 0 ? "border-amber-400 dark:border-amber-600 border-2" : "border-muted"}`}>
+                                    <CardHeader className={`py-3 border-b ${unlinkedTtrs.length > 0 ? "bg-amber-50/50 dark:bg-amber-900/20" : "bg-muted/40"}`}>
                                         <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                            <Link2 className="w-4 h-4 text-blue-600" />
-                                            Liên kết Tờ Trình ({visibleUnlinkedTtrs.filter(t => selectedTtrIds.includes(t.id)).length} đã chọn)
+                                            <Link2 className={`w-4 h-4 ${unlinkedTtrs.length > 0 ? "text-amber-600" : "text-muted-foreground"}`} />
+                                            {unlinkedTtrs.length > 0 ? (
+                                                <>
+                                                    <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+                                                    Có {unlinkedTtrs.length} TTr chưa có phúc đáp ({selectedTtrIds.length} đã chọn)
+                                                </>
+                                            ) : (
+                                                "Liên kết Tờ Trình"
+                                            )}
                                         </CardTitle>
                                         <CardDescription>
-                                            Chọn các Tờ Trình đã nhận trước đó để liên kết với Công Văn này
+                                            {unlinkedTtrs.length > 0
+                                                ? "Chọn các Tờ Trình để liên kết với Công Văn này"
+                                                : "Không có Tờ Trình nào chưa được liên kết"
+                                            }
                                         </CardDescription>
                                     </CardHeader>
-                                    <CardContent className="pt-4 space-y-2">
-                                        {visibleUnlinkedTtrs.map((ttr) => (
-                                            <div
-                                                key={ttr.id}
-                                                className={`flex items-center gap-3 p-3 border rounded-md transition-colors ${selectedTtrIds.includes(ttr.id)
-                                                    ? "bg-blue-50 border-blue-300 dark:bg-blue-900/30 dark:border-blue-700"
-                                                    : "hover:bg-muted/50"
-                                                    }`}
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedTtrIds.includes(ttr.id)}
-                                                    onChange={() => {
+                                    {unlinkedTtrs.length > 0 && (
+                                        <CardContent className="pt-4 space-y-2">
+                                            {unlinkedTtrs.map((ttr) => (
+                                                <div
+                                                    key={ttr.id}
+                                                    className={`flex items-center gap-3 p-3 border rounded-md transition-colors cursor-pointer ${selectedTtrIds.includes(ttr.id)
+                                                        ? "bg-amber-50 border-amber-300 dark:bg-amber-900/30 dark:border-amber-700"
+                                                        : "hover:bg-muted/50"
+                                                        }`}
+                                                    onClick={() => {
                                                         const newIds = selectedTtrIds.includes(ttr.id)
                                                             ? selectedTtrIds.filter((id) => id !== ttr.id)
                                                             : [...selectedTtrIds, ttr.id]
                                                         setSelectedTtrIds(newIds)
                                                         form.setValue("linkedTtrIds", newIds, { shouldValidate: true })
                                                     }}
-                                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                                                />
-                                                <div className="flex-1">
-                                                    <div className="font-medium">{ttr.dispatchNumber}</div>
-                                                    <div className="text-xs text-muted-foreground">
-                                                        {new Date(ttr.date).toLocaleDateString("vi-VN")} - {ttr.transformers.length} MBA
-                                                    </div>
-                                                </div>
-                                                <Button
-                                                    type="button"
-                                                    variant={previewTtr?.id === ttr.id ? "default" : "ghost"}
-                                                    size="icon"
-                                                    className="h-8 w-8"
-                                                    onClick={() => setPreviewTtr(previewTtr?.id === ttr.id ? null : ttr)}
-                                                    title="Xem preview"
                                                 >
-                                                    <FileText className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        ))}
-                                    </CardContent>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedTtrIds.includes(ttr.id)}
+                                                        onChange={() => { }}
+                                                        className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                                                    />
+                                                    <div className="flex-1">
+                                                        <div className="font-medium">{ttr.dispatchNumber}</div>
+                                                        <div className="text-xs text-muted-foreground">
+                                                            {new Date(ttr.date).toLocaleDateString("vi-VN")} - {ttr.transformers.length} MBA
+                                                        </div>
+                                                    </div>
+                                                    <Button
+                                                        type="button"
+                                                        variant={previewTtr?.id === ttr.id ? "default" : "ghost"}
+                                                        size="icon"
+                                                        className="h-8 w-8"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            setPreviewTtr(previewTtr?.id === ttr.id ? null : ttr)
+                                                        }}
+                                                        title="Xem preview"
+                                                    >
+                                                        <FileText className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            ))}
+                                        </CardContent>
+                                    )}
                                 </Card>
                             )}
 
@@ -846,10 +883,21 @@ export default function ImportPage() {
                                                                             ? "border-red-500 bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                                                                             : "border-input bg-transparent"
                                                                         }`}
-                                                                    value={field.value || ""}
-                                                                    onChange={(e) => field.onChange(e.target.value || undefined)}
+                                                                    value={field.value || "PASS"}
+                                                                    onChange={(e) => {
+                                                                        const newValue = e.target.value || undefined
+                                                                        field.onChange(newValue)
+                                                                        // Tự động điền/xóa ghi chú khi thay đổi trạng thái
+                                                                        if (newValue === "FAIL") {
+                                                                            form.setValue(`transformers.${index}.note`, "CBM không đạt")
+                                                                        } else if (newValue === "PASS") {
+                                                                            const currentNote = form.getValues(`transformers.${index}.note`)
+                                                                            if (currentNote === "CBM không đạt") {
+                                                                                form.setValue(`transformers.${index}.note`, "")
+                                                                            }
+                                                                        }
+                                                                    }}
                                                                 >
-                                                                    <option value="">KQ TN</option>
                                                                     <option value="PASS">✓ Đạt</option>
                                                                     <option value="FAIL">✗ Không đạt</option>
                                                                 </select>

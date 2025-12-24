@@ -40,6 +40,7 @@ model Transformer {
   model        String?
   note         String?
   testResult   String?   // PASS | FAIL | null - Kết quả thí nghiệm CBM
+  isProcessed  Boolean   @default(false) // Máy FAIL đã được xử lý (thêm vào Export khác)
   
   dispatchId   String
   dispatch     Dispatch  @relation(fields: [dispatchId], references: [id], onDelete: Cascade)

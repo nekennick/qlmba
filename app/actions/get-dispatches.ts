@@ -133,12 +133,13 @@ export async function getExportCBMDispatches() {
     }
 }
 
-// Lấy danh sách máy CBM không đạt thí nghiệm (FAIL) để gợi ý khi Export/Trả MBA
+// Lấy danh sách máy CBM không đạt thí nghiệm (FAIL) chưa được xử lý
 export async function getFailedCBMTransformers() {
     try {
         const transformers = await db.transformer.findMany({
             where: {
                 testResult: "FAIL",
+                isProcessed: false, // Chỉ lấy máy chưa được xử lý
                 dispatch: {
                     type: "IMPORT",
                     isCBM: true,
@@ -165,5 +166,19 @@ export async function getFailedCBMTransformers() {
     } catch (error) {
         console.error("Error fetching failed CBM transformers:", error)
         return []
+    }
+}
+
+// Đánh dấu máy FAIL đã được xử lý (thêm vào Export khác)
+export async function markTransformerProcessed(transformerId: string) {
+    try {
+        await db.transformer.update({
+            where: { id: transformerId },
+            data: { isProcessed: true }
+        })
+        return { success: true }
+    } catch (error) {
+        console.error("Error marking transformer as processed:", error)
+        return { success: false, error: "Lỗi cập nhật trạng thái máy" }
     }
 }

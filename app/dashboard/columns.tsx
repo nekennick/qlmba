@@ -133,14 +133,31 @@ export const columns: ColumnDef<Transformer>[] = [
             const data = row.original
             const isImport = data.type === "IMPORT"
             const docType = data.documentType || "CV"
+            const groupInfo = (data as any)._groupInfo || { position: 1, total: 1, isFirst: true }
 
             return (
                 <div className="flex flex-col gap-1 px-1">
                     <div className="flex items-center gap-2">
-                        <span className="font-medium">{data.dispatchNumber || "N/A"}</span>
-                        <Badge variant={docType === "CV" ? "default" : "secondary"} className={docType === "CV" ? "bg-blue-600 hover:bg-blue-700 h-5 px-1.5" : "bg-amber-600 hover:bg-amber-700 text-white h-5 px-1.5"}>
-                            {docType}
-                        </Badge>
+                        {/* Badge vị trí trong nhóm */}
+                        {groupInfo.total > 1 && (
+                            <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                {groupInfo.position}/{groupInfo.total}
+                            </span>
+                        )}
+                        <span className="font-medium">
+                            {groupInfo.position > 1 ? (
+                                <div className="flex items-center text-muted-foreground pl-2">
+                                    <span className="text-xl leading-3 opacity-50">↳</span>
+                                </div>
+                            ) : (
+                                data.dispatchNumber || "N/A"
+                            )}
+                        </span>
+                        {groupInfo.position === 1 && (
+                            <Badge variant={docType === "CV" ? "default" : "secondary"} className={docType === "CV" ? "bg-blue-600 hover:bg-blue-700 h-5 px-1.5" : "bg-amber-600 hover:bg-amber-700 text-white h-5 px-1.5"}>
+                                {docType}
+                            </Badge>
+                        )}
                         {data.isCBM && (
                             <Badge className="bg-orange-500 hover:bg-orange-600 text-white h-5 px-1.5">
                                 CBM
@@ -150,9 +167,15 @@ export const columns: ColumnDef<Transformer>[] = [
 
                     {/* Show linking info if any */}
                     {data.documentType === "TTr" && data.linkedCv && (
-                        <div className="flex items-center gap-1 text-xs text-blue-600 font-medium whitespace-nowrap">
+                        <div className="flex items-center gap-1 text-xs text-green-600 font-medium whitespace-nowrap">
                             <Link2 className="w-3 h-3" />
-                            <span>→ {data.linkedCv.dispatchNumber}</span>
+                            <span>✓ Đã liên kết → {data.linkedCv.dispatchNumber}</span>
+                        </div>
+                    )}
+                    {data.documentType === "TTr" && !data.linkedCv && (
+                        <div className="flex items-center gap-1 text-xs text-amber-600 font-medium whitespace-nowrap">
+                            <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+                            <span>Chưa có phúc đáp</span>
                         </div>
                     )}
                 </div>

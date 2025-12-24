@@ -40,6 +40,7 @@ export async function getDispatchById(id: string) {
                     capacity: t.capacity || "",
                     model: t.model || "",
                     note: t.note || "",
+                    testResult: t.testResult, // Thêm testResult để edit được
                 })),
                 linkedTtrIds: dispatch.linkedTtrs.map(ttr => ttr.id),
                 linkedTtrsInfo: dispatch.linkedTtrs.map(ttr => ({

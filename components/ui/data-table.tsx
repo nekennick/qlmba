@@ -91,21 +91,72 @@ export function DataTable<TData, TValue>({
                     </TableHeader>
                     <TableBody>
                         {table.getRowModel().rows?.length ? (
-                            table.getRowModel().rows.map((row) => (
-                                <TableRow
-                                    key={row.id}
-                                    data-state={row.getIsSelected() && "selected"}
-                                >
-                                    {row.getVisibleCells().map((cell) => (
-                                        <TableCell key={cell.id}>
-                                            {flexRender(
-                                                cell.column.columnDef.cell,
-                                                cell.getContext()
-                                            )}
-                                        </TableCell>
-                                    ))}
-                                </TableRow>
-                            ))
+                            (() => {
+                                // Tính toán màu nền và viền cho từng nhóm dispatchId
+                                const rows = table.getRowModel().rows
+                                let currentDispatchId = ""
+                                let groupIndex = 0
+                                let positionInGroup = 0
+
+                                // Đếm số lượng trong mỗi nhóm trước
+                                const groupCounts: { [key: string]: number } = {}
+                                rows.forEach(row => {
+                                    const dispatchId = (row.original as any)?.dispatchId || ""
+                                    groupCounts[dispatchId] = (groupCounts[dispatchId] || 0) + 1
+                                })
+
+                                // Màu viền trái xen kẽ
+                                const borderColors = ["border-l-emerald-500", "border-l-blue-500"]
+                                const bgColors = ["bg-emerald-50/40 dark:bg-emerald-900/10", "bg-blue-50/40 dark:bg-blue-900/10"]
+
+                                return rows.map((row, index) => {
+                                    const rowData = row.original as any
+                                    const dispatchId = rowData?.dispatchId || ""
+
+                                    // Khi gặp dispatchId mới, reset position và tăng groupIndex
+                                    if (dispatchId !== currentDispatchId) {
+                                        currentDispatchId = dispatchId
+                                        groupIndex++
+                                        positionInGroup = 1
+                                    } else {
+                                        positionInGroup++
+                                    }
+
+                                    const totalInGroup = groupCounts[dispatchId] || 1
+                                    const bgColor = totalInGroup > 1 ? bgColors[groupIndex % 2] : ""
+
+                                    // Kiểm tra xem row tiếp theo có cùng dispatchId không
+                                    const nextRow = rows[index + 1]
+                                    const nextDispatchId = (nextRow?.original as any)?.dispatchId || ""
+                                    const isLastInGroup = nextDispatchId !== dispatchId
+                                    const isFirstInGroup = positionInGroup === 1
+
+                                        // Truyền thông tin vị trí cho cell
+                                        ; (rowData as any)._groupInfo = {
+                                            position: positionInGroup,
+                                            total: totalInGroup,
+                                            isFirst: isFirstInGroup,
+                                            groupIndex: groupIndex
+                                        }
+
+                                    return (
+                                        <TableRow
+                                            key={row.id}
+                                            data-state={row.getIsSelected() && "selected"}
+                                            className={`${bgColor} ${isLastInGroup && totalInGroup > 1 ? "border-b-2 border-b-border" : ""}`}
+                                        >
+                                            {row.getVisibleCells().map((cell) => (
+                                                <TableCell key={cell.id}>
+                                                    {flexRender(
+                                                        cell.column.columnDef.cell,
+                                                        cell.getContext()
+                                                    )}
+                                                </TableCell>
+                                            ))}
+                                        </TableRow>
+                                    )
+                                })
+                            })()
                         ) : (
                             <TableRow>
                                 <TableCell

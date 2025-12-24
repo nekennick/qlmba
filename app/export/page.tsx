@@ -8,9 +8,10 @@ import { Upload, Plus, Trash2, Save, Check, ChevronsUpDown, ArrowLeft } from "lu
 import Link from "next/link"
 import { toast } from "sonner"
 import { createExportDispatch } from "@/app/actions/export-dispatch"
-import { getImportDispatches, getFailedCBMTransformers } from "@/app/actions/get-dispatches"
+import { getImportDispatches, getFailedCBMTransformers, markTransformerProcessed } from "@/app/actions/get-dispatches"
 import { getDispatchById } from "@/app/actions/get-dispatch"
 import { updateDispatch } from "@/app/actions/update-dispatch"
+import { checkDuplicateSerials } from "@/app/actions/validate-serial"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -166,6 +167,17 @@ export default function ExportPage() {
 
     const onSubmit = async (values: z.infer<typeof formSchema>) => {
         try {
+            // Kiểm tra serial number trùng lặp (chỉ kiểm tra khi tạo mới, không kiểm tra CBM)
+            if (!isEditMode && !isCBM) {
+                const serials = values.transformers.map(t => t.serialNumber)
+                const { duplicates } = await checkDuplicateSerials(serials, "EXPORT", false)
+                if (duplicates.length > 0) {
+                    const dupList = duplicates.map(d => `${d.serialNumber} (${d.dispatchNumber})`).join(", ")
+                    const proceed = confirm(`Cảnh báo: Các số máy sau đã tồn tại trong hệ thống:\n${dupList}\n\nBạn có muốn tiếp tục lưu không?`)
+                    if (!proceed) return
+                }
+            }
+
             // Tự động thêm hậu tố vào số công văn (chỉ khi không chọn nguồn từ CV có sẵn)
             let dispatchNumberWithSuffix = values.dispatchNumber
             if (!selectedImportId) {
@@ -473,13 +485,15 @@ export default function ExportPage() {
                                                     variant="outline"
                                                     size="sm"
                                                     className="gap-1 h-7 text-xs border-red-300 hover:bg-red-100 dark:hover:bg-red-900/30"
-                                                    onClick={() => {
+                                                    onClick={async () => {
                                                         append({
                                                             serialNumber: machine.serialNumber,
                                                             capacity: machine.capacity || "",
                                                             model: machine.model || "",
                                                             note: `CBM FAIL - ${machine.dispatchNumber}`,
                                                         })
+                                                        // Đánh dấu máy đã được xử lý trong DB
+                                                        await markTransformerProcessed(machine.id)
                                                         // Remove from list after adding
                                                         setFailedCbmMachines(prev => prev.filter(m => m.id !== machine.id))
                                                         toast.success(`Đã thêm máy ${machine.serialNumber} vào danh sách trả`)
