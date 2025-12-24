@@ -28,6 +28,9 @@ export type Transformer = {
     linkedCv?: {
         dispatchNumber: string
     } | null
+    linkedTtrs?: {
+        dispatchNumber: string
+    }[]
 }
 
 export const columns: ColumnDef<Transformer>[] = [
@@ -176,6 +179,13 @@ export const columns: ColumnDef<Transformer>[] = [
                         <div className="flex items-center gap-1 text-xs text-amber-600 font-medium whitespace-nowrap">
                             <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
                             <span>Chưa có phúc đáp</span>
+                        </div>
+                    )}
+                    {/* Show linked TTrs for CV */}
+                    {data.documentType === "CV" && data.linkedTtrs && data.linkedTtrs.length > 0 && (
+                        <div className="flex items-center gap-1 text-xs text-green-600 font-medium whitespace-nowrap">
+                            <Link2 className="w-3 h-3" />
+                            <span>✓ Có {data.linkedTtrs.length} TTr liên kết</span>
                         </div>
                     )}
                 </div>
