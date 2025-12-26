@@ -41,6 +41,7 @@ export async function getDispatchById(id: string) {
                     model: t.model || "",
                     note: t.note || "",
                     testResult: t.testResult, // Thêm testResult để edit được
+                    imageUrl: t.imageUrl || "", // Thêm imageUrl
                 })),
                 linkedTtrIds: dispatch.linkedTtrs.map(ttr => ttr.id),
                 linkedTtrsInfo: dispatch.linkedTtrs.map(ttr => ({

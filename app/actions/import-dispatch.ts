@@ -9,7 +9,8 @@ const transformerSchema = z.object({
     capacity: z.string().min(1, "Bắt buộc"),
     model: z.string().optional(),
     note: z.string().optional(),
-    testResult: z.enum(["PASS", "FAIL"]).optional(), // Kết quả thí nghiệm CBM
+    testResult: z.enum(["PASS", "FAIL"]).nullish(), // Chấp nhận PASS, FAIL, null, undefined
+    imageUrl: z.string().optional(), // URL hình ảnh máy biến áp
 })
 
 const formSchema = z.object({
@@ -76,6 +77,7 @@ export async function createImportDispatch(data: z.infer<typeof formSchema>) {
                         model: t.model,
                         note: t.note,
                         testResult: t.testResult, // Lưu kết quả thí nghiệm
+                        imageUrl: t.imageUrl, // Lưu URL hình ảnh
                     }))
                 }
             }

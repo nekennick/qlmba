@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Upload, Plus, Trash2, Save, Check, ChevronsUpDown, ArrowLeft } from "lucide-react"
+import { Upload, Plus, Trash2, Save, Check, ChevronsUpDown, ArrowLeft, Camera } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 import { createExportDispatch } from "@/app/actions/export-dispatch"
@@ -12,6 +12,7 @@ import { getImportDispatches, getFailedCBMTransformers, markTransformerProcessed
 import { getDispatchById } from "@/app/actions/get-dispatch"
 import { updateDispatch } from "@/app/actions/update-dispatch"
 import { checkDuplicateSerials } from "@/app/actions/validate-serial"
+import { uploadTransformerImage } from "@/app/actions/upload-transformer-image"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -48,6 +49,7 @@ const transformerSchema = z.object({
     capacity: z.string().min(1, "Bắt buộc"),
     model: z.string().optional(),
     note: z.string().optional(),
+    imageUrl: z.string().optional(), // URL hình ảnh máy biến áp
 })
 
 const formSchema = z.object({
@@ -68,6 +70,7 @@ export default function ExportPage() {
     const [documentType, setDocumentType] = useState<"CV" | "TTr">("CV")
     const [isCBM, setIsCBM] = useState(false)
     const [failedCbmMachines, setFailedCbmMachines] = useState<any[]>([]) // Máy CBM không đạt thí nghiệm
+    const [previewImage, setPreviewImage] = useState<string | null>(null) // Preview ảnh máy biến áp
     // Unit state is now managed globally by useUnitStore
 
     const router = useRouter()
@@ -121,6 +124,7 @@ export default function ExportPage() {
                             capacity: t.capacity,
                             model: t.model || "",
                             note: t.note || "",
+                            imageUrl: t.imageUrl || undefined, // Load imageUrl từ DB
                         })),
                     })
                     setDocumentType((data.documentType as "CV" | "TTr") || "CV")
@@ -243,9 +247,9 @@ export default function ExportPage() {
     }
 
     return (
-        <div className="flex h-screen overflow-hidden bg-background">
-            {/* LEFT PANE: PDF Viewer */}
-            <div className="w-1/2 h-full border-r bg-muted/30 flex flex-col">
+        <div className="flex flex-col md:flex-row h-screen overflow-hidden bg-background">
+            {/* LEFT PANE: PDF Viewer - Hidden on mobile */}
+            <div className="hidden md:flex md:w-1/2 h-full border-r bg-muted/30 flex-col">
                 <div className="p-4 border-b bg-card shadow-sm flex items-center justify-between h-16">
                     <div className="flex items-center gap-2">
                         <Button asChild variant="ghost" size="icon" className="h-8 w-8">
@@ -273,7 +277,24 @@ export default function ExportPage() {
                 </div>
 
                 <div className="flex-1 overflow-hidden relative bg-muted/50 dark:bg-muted/10">
-                    {pdfFile ? (
+                    {previewImage ? (
+                        /* Preview ảnh máy biến áp */
+                        <div className="w-full h-full flex flex-col">
+                            <div className="p-4 bg-blue-50 dark:bg-blue-900/30 border-b">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="font-semibold text-blue-700 dark:text-blue-400">
+                                        Ảnh máy biến áp
+                                    </h3>
+                                    <Button variant="ghost" size="sm" onClick={() => setPreviewImage(null)}>
+                                        ✕ Đóng
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-muted/20">
+                                <img src={previewImage} alt="Preview" className="max-w-full max-h-full object-contain shadow-lg rounded-lg" />
+                            </div>
+                        </div>
+                    ) : pdfFile ? (
                         <div className="w-full h-full flex items-center justify-center overflow-auto p-4">
                             {pdfFile.toLowerCase().match(/\.(jpg|jpeg|png|webp|gif)/) ? (
                                 <img
@@ -302,16 +323,26 @@ export default function ExportPage() {
                 </div>
             </div>
 
-            {/* RIGHT PANE: Form */}
-            <div className="w-1/2 h-full flex flex-col bg-background">
-                <div className="p-4 border-b h-16 flex items-center justify-between">
-                    <h2 className="font-semibold text-lg text-primary">{isEditMode ? "Cập nhật số liệu MBA trả" : "Nhập số liệu MBA trả"}</h2>
-                    <Button onClick={form.handleSubmit(onSubmit)} className="gap-2">
-                        <Save className="w-4 h-4" /> {isEditMode ? "Cập nhật" : "Lưu thông tin"}
+            {/* RIGHT PANE: Form - Full width on mobile */}
+            <div className="w-full md:w-1/2 h-full flex flex-col bg-background">
+                <div className="p-3 md:p-4 border-b min-h-14 md:h-16 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                        {/* Back button - chỉ hiện trên mobile */}
+                        <Button asChild variant="ghost" size="icon" className="h-10 w-10 md:hidden">
+                            <Link href="/">
+                                <ArrowLeft className="h-5 w-5" />
+                            </Link>
+                        </Button>
+                        <h2 className="font-semibold text-base md:text-lg text-primary">
+                            {isEditMode ? "Cập nhật số liệu MBA trả" : "Nhập số liệu MBA trả"}
+                        </h2>
+                    </div>
+                    <Button onClick={form.handleSubmit(onSubmit)} size="sm" className="h-10 gap-2">
+                        <Save className="w-4 h-4" /> {isEditMode ? "Cập nhật" : "Lưu"}
                     </Button>
                 </div>
 
-                <ScrollArea className="flex-1 p-4">
+                <div className="flex-1 overflow-auto p-4">
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pb-20">
 
@@ -320,7 +351,7 @@ export default function ExportPage() {
                                 <CardHeader className="py-3 bg-muted/40 border-b">
                                     <CardTitle className="text-sm font-medium">Thông tin chung</CardTitle>
                                 </CardHeader>
-                                <CardContent className="grid grid-cols-2 gap-4 pt-4">
+                                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
                                     <FormItem className="flex flex-col">
                                         <FormLabel>Tải từ CV đã nhập (tùy chọn)</FormLabel>
                                         <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
@@ -522,93 +553,175 @@ export default function ExportPage() {
                                     </Button>
                                 </CardHeader>
                                 <CardContent className="pt-4 space-y-2">
-                                    {fields.map((field, index) => (
-                                        <div key={field.id} className="flex gap-3 items-start p-3 border rounded-md bg-muted/20 hover:bg-muted/40 transition-colors">
-                                            <div className="w-8 pt-2 text-center text-sm text-muted-foreground font-medium">{index + 1}</div>
+                                    {fields.map((field, index) => {
+                                        const imageUrl = form.watch(`transformers.${index}.imageUrl`)
 
-                                            <FormField
-                                                control={form.control}
-                                                name={`transformers.${index}.serialNumber`}
-                                                render={({ field }) => (
-                                                    <FormItem className="flex-1">
-                                                        <FormControl>
-                                                            <Input placeholder="Số máy (Serial No)" {...field} />
-                                                        </FormControl>
-                                                        <FormMessage className="text-xs" />
-                                                    </FormItem>
-                                                )}
-                                            />
+                                        const handleImageDrop = async (e: React.DragEvent) => {
+                                            e.preventDefault()
+                                            const file = e.dataTransfer.files[0]
+                                            if (file && file.type.startsWith("image/")) {
+                                                const formData = new FormData()
+                                                formData.append("file", file)
+                                                const result = await uploadTransformerImage(formData)
+                                                if (result.success && result.url) {
+                                                    form.setValue(`transformers.${index}.imageUrl`, result.url)
+                                                    toast.success("Đã upload ảnh")
+                                                } else {
+                                                    toast.error(result.error || "Lỗi upload")
+                                                }
+                                            }
+                                        }
 
-                                            <FormField
-                                                control={form.control}
-                                                name={`transformers.${index}.capacity`}
-                                                render={({ field }) => (
-                                                    <FormItem className="w-32">
-                                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+                                            const file = e.target.files?.[0]
+                                            if (file && file.type.startsWith("image/")) {
+                                                const formData = new FormData()
+                                                formData.append("file", file)
+                                                const result = await uploadTransformerImage(formData)
+                                                if (result.success && result.url) {
+                                                    form.setValue(`transformers.${index}.imageUrl`, result.url)
+                                                    toast.success("Đã upload ảnh")
+                                                } else {
+                                                    toast.error(result.error || "Lỗi upload")
+                                                }
+                                            }
+                                            e.target.value = "" // reset input
+                                        }
+
+                                        const handleImageClick = () => {
+                                            if (imageUrl) {
+                                                setPreviewImage(imageUrl)
+                                            }
+                                        }
+
+                                        return (
+                                            <div key={field.id} className="flex flex-col md:flex-row gap-2 md:gap-3 items-start p-3 border rounded-md bg-muted/20 hover:bg-muted/40 transition-colors">
+                                                {/* Drop zone / Thumbnail */}
+                                                <div className="relative">
+                                                    {/* File input - chỉ hiện khi chưa có ảnh */}
+                                                    {!imageUrl && (
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            onChange={handleFileSelect}
+                                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                                            title="Chọn ảnh từ thiết bị"
+                                                        />
+                                                    )}
+                                                    <div
+                                                        className={`w-14 h-14 md:w-16 md:h-16 border-2 border-dashed rounded-md flex items-center justify-center transition-all cursor-pointer ${imageUrl ? 'border-green-500 bg-green-50/50 dark:bg-green-900/20' : 'border-muted-foreground/30 hover:border-primary/50'
+                                                            }`}
+                                                        onDragOver={(e) => e.preventDefault()}
+                                                        onDrop={handleImageDrop}
+                                                        onClick={imageUrl ? handleImageClick : undefined}
+                                                        title={imageUrl ? "Click để xem ảnh lớn" : "Kéo thả hoặc click để chọn ảnh"}
+                                                    >
+                                                        {imageUrl ? (
+                                                            <img src={imageUrl} alt="MBA" className="w-full h-full object-cover rounded" />
+                                                        ) : (
+                                                            <Camera className="w-5 h-5 text-muted-foreground/50" />
+                                                        )}
+                                                    </div>
+                                                    {/* Nút đổi ảnh - chỉ hiện khi đã có ảnh */}
+                                                    {imageUrl && (
+                                                        <label className="absolute -bottom-1 -right-1 w-5 h-5 bg-primary rounded-full flex items-center justify-center cursor-pointer hover:bg-primary/80 transition-colors z-10" title="Đổi ảnh">
+                                                            <input
+                                                                type="file"
+                                                                accept="image/*"
+                                                                onChange={handleFileSelect}
+                                                                className="hidden"
+                                                            />
+                                                            <Camera className="w-3 h-3 text-primary-foreground" />
+                                                        </label>
+                                                    )}
+                                                </div>
+
+                                                <div className="w-8 pt-2 text-center text-sm text-muted-foreground font-medium hidden md:block">{index + 1}</div>
+
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`transformers.${index}.serialNumber`}
+                                                    render={({ field }) => (
+                                                        <FormItem className="flex-1">
                                                             <FormControl>
-                                                                <SelectTrigger>
-                                                                    <SelectValue placeholder="Dung lượng" />
-                                                                </SelectTrigger>
+                                                                <Input placeholder="Số máy (Serial No)" {...field} />
                                                             </FormControl>
-                                                            <SelectContent>
-                                                                {["25kVA", "37.5kVA", "50kVA", "75kVA", "100kVA", "160kVA", "250kVA"].map((cap) => (
-                                                                    <SelectItem key={cap} value={cap}>
-                                                                        {cap}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                        <FormMessage className="text-xs" />
-                                                    </FormItem>
-                                                )}
-                                            />
+                                                            <FormMessage className="text-xs" />
+                                                        </FormItem>
+                                                    )}
+                                                />
 
-                                            <FormField
-                                                control={form.control}
-                                                name={`transformers.${index}.model`}
-                                                render={({ field }) => (
-                                                    <FormItem className="w-32">
-                                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`transformers.${index}.capacity`}
+                                                    render={({ field }) => (
+                                                        <FormItem className="w-32">
+                                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                                <FormControl>
+                                                                    <SelectTrigger>
+                                                                        <SelectValue placeholder="Dung lượng" />
+                                                                    </SelectTrigger>
+                                                                </FormControl>
+                                                                <SelectContent>
+                                                                    {["25kVA", "37.5kVA", "50kVA", "75kVA", "100kVA", "160kVA", "250kVA"].map((cap) => (
+                                                                        <SelectItem key={cap} value={cap}>
+                                                                            {cap}
+                                                                        </SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <FormMessage className="text-xs" />
+                                                        </FormItem>
+                                                    )}
+                                                />
+
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`transformers.${index}.model`}
+                                                    render={({ field }) => (
+                                                        <FormItem className="w-32">
+                                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                                <FormControl>
+                                                                    <SelectTrigger>
+                                                                        <SelectValue placeholder="Loại/Hãng" />
+                                                                    </SelectTrigger>
+                                                                </FormControl>
+                                                                <SelectContent>
+                                                                    <SelectItem value="1P">1P</SelectItem>
+                                                                    <SelectItem value="3P">3P</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <FormMessage className="text-xs" />
+                                                        </FormItem>
+                                                    )}
+                                                />
+
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`transformers.${index}.note`}
+                                                    render={({ field }) => (
+                                                        <FormItem className="flex-1">
                                                             <FormControl>
-                                                                <SelectTrigger>
-                                                                    <SelectValue placeholder="Loại/Hãng" />
-                                                                </SelectTrigger>
+                                                                <Input placeholder="Ghi chú" {...field} />
                                                             </FormControl>
-                                                            <SelectContent>
-                                                                <SelectItem value="1P">1P</SelectItem>
-                                                                <SelectItem value="3P">3P</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                        <FormMessage className="text-xs" />
-                                                    </FormItem>
-                                                )}
-                                            />
+                                                            <FormMessage className="text-xs" />
+                                                        </FormItem>
+                                                    )}
+                                                />
 
-                                            <FormField
-                                                control={form.control}
-                                                name={`transformers.${index}.note`}
-                                                render={({ field }) => (
-                                                    <FormItem className="flex-1">
-                                                        <FormControl>
-                                                            <Input placeholder="Ghi chú" {...field} />
-                                                        </FormControl>
-                                                        <FormMessage className="text-xs" />
-                                                    </FormItem>
-                                                )}
-                                            />
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="text-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                    onClick={() => remove(index)}
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </Button>
 
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                                onClick={() => remove(index)}
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </Button>
-
-                                        </div>
-                                    ))}
+                                            </div>
+                                        )
+                                    })}
 
                                     <Button
                                         type="button"
@@ -623,7 +736,7 @@ export default function ExportPage() {
                             </Card>
                         </form>
                     </Form>
-                </ScrollArea>
+                </div>
             </div>
         </div>
     )

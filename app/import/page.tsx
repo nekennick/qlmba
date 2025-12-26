@@ -4,11 +4,12 @@ import { useState, useEffect, useRef } from "react"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Upload, Plus, Trash2, Save, Search, FileText, ArrowLeft, Link2 } from "lucide-react"
+import { Upload, Plus, Trash2, Save, Search, FileText, ArrowLeft, Link2, Camera, Image } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 import { createImportDispatch, searchDispatches } from "@/app/actions/import-dispatch"
 import { uploadFile } from "@/app/actions/upload"
+import { uploadTransformerImage } from "@/app/actions/upload-transformer-image"
 import { getUnlinkedTtrs } from "@/app/actions/get-unlinked-ttrs"
 import { getExportCBMDispatches } from "@/app/actions/get-dispatches"
 import { getDispatchById } from "@/app/actions/get-dispatch"
@@ -44,7 +45,8 @@ const transformerSchema = z.object({
     capacity: z.string().min(1, "Bắt buộc"),
     model: z.string().optional(),
     note: z.string().optional(),
-    testResult: z.enum(["PASS", "FAIL"]).optional(), // Kết quả thí nghiệm CBM
+    testResult: z.enum(["PASS", "FAIL"]).nullish(), // Chấp nhận PASS, FAIL, null, undefined
+    imageUrl: z.string().optional(), // URL hình ảnh máy biến áp
 })
 
 const formSchema = z.object({
@@ -76,6 +78,7 @@ export default function ImportPage() {
     const [cbmDispatches, setCbmDispatches] = useState<any[]>([])
     const [selectedCbmId, setSelectedCbmId] = useState<string>("")
     const [isCbmReturn, setIsCbmReturn] = useState(false)
+    const [previewImage, setPreviewImage] = useState<string | null>(null) // Preview hình ảnh transformer
     const router = useRouter()
     const searchParams = useSearchParams()
 
@@ -126,6 +129,7 @@ export default function ImportPage() {
                             model: t.model,
                             note: t.note,
                             testResult: t.testResult as "PASS" | "FAIL" | undefined, // Load testResult từ DB
+                            imageUrl: t.imageUrl || undefined, // Load imageUrl từ DB
                         })),
                     })
                     // Sync documentType state
@@ -257,6 +261,7 @@ export default function ImportPage() {
     }
 
     const onSubmit = async (values: z.infer<typeof formSchema>) => {
+        console.log("=== onSubmit called ===", values)
         try {
             let uploadedFileUrl = ""
 
@@ -340,9 +345,9 @@ export default function ImportPage() {
     }
 
     return (
-        <div className="flex h-screen overflow-hidden bg-background">
-            {/* LEFT PANE: PDF & Info */}
-            <div className="w-1/2 h-full border-r bg-muted/30 flex flex-col">
+        <div className="flex flex-col md:flex-row h-screen overflow-hidden bg-background">
+            {/* LEFT PANE: PDF & Info - Hidden on mobile */}
+            <div className="hidden md:flex md:w-1/2 h-full border-r bg-muted/30 flex-col">
                 <div className="p-4 border-b bg-card shadow-sm flex items-center justify-between h-16">
                     <div className="flex items-center gap-2">
                         <Button asChild variant="ghost" size="icon" className="h-8 w-8">
@@ -463,6 +468,23 @@ export default function ImportPage() {
                                 )}
                             </div>
                         </div>
+                    ) : previewImage ? (
+                        /* Preview ảnh máy biến áp */
+                        <div className="w-full h-full flex flex-col">
+                            <div className="p-4 bg-blue-50 dark:bg-blue-900/30 border-b">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="font-semibold text-blue-700 dark:text-blue-400">
+                                        Ảnh máy biến áp
+                                    </h3>
+                                    <Button variant="ghost" size="sm" onClick={() => setPreviewImage(null)}>
+                                        ✕ Đóng
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-muted/20">
+                                <img src={previewImage} alt="Preview" className="max-w-full max-h-full object-contain shadow-lg rounded-lg" />
+                            </div>
+                        </div>
                     ) : pdfFile ? (
                         <div className="w-full h-full flex items-center justify-center overflow-auto p-4">
                             {pdfFile.toLowerCase().match(/\.(jpg|jpeg|png|webp|gif)$/) || (selectedFile?.type.startsWith('image/')) ? (
@@ -494,14 +516,32 @@ export default function ImportPage() {
                 </div>
             </div>
 
-            {/* RIGHT PANE: Form */}
-            <div className="w-1/2 h-full flex flex-col bg-background">
-                <div className="p-4 border-b h-16 flex items-center justify-between bg-green-50/50 dark:bg-green-900/10">
-                    <h2 className="font-semibold text-lg text-green-700 dark:text-green-400">
-                        {isEditMode ? "Chỉnh sửa MBA nhận" : "Nhập số liệu MBA nhận"}
-                    </h2>
-                    <Button onClick={form.handleSubmit(onSubmit)} className="gap-2 bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 dark:text-white">
-                        <Save className="w-4 h-4" /> {isEditMode ? "Cập nhật" : "Lưu thông tin"}
+            {/* RIGHT PANE: Form - Full width on mobile */}
+            <div className="w-full md:w-1/2 h-full flex flex-col bg-background">
+                <div className="p-3 md:p-4 border-b min-h-14 md:h-16 flex items-center justify-between bg-green-50/50 dark:bg-green-900/10 gap-2">
+                    <div className="flex items-center gap-2">
+                        {/* Back button - chỉ hiện trên mobile */}
+                        <Button asChild variant="ghost" size="icon" className="h-10 w-10 md:hidden">
+                            <Link href="/">
+                                <ArrowLeft className="h-5 w-5" />
+                            </Link>
+                        </Button>
+                        <h2 className="font-semibold text-base md:text-lg text-green-700 dark:text-green-400">
+                            {isEditMode ? "Chỉnh sửa MBA nhận" : "Nhập số liệu MBA nhận"}
+                        </h2>
+                    </div>
+                    <Button onClick={() => {
+                        const values = form.getValues()
+                        console.log("Button clicked, formState:", form.formState)
+                        console.log("Form values:", values)
+                        console.log("Transformers detail:", JSON.stringify(values.transformers, null, 2))
+                        console.log("Form errors:", form.formState.errors)
+                        form.handleSubmit(onSubmit, (errors) => {
+                            console.error("Form validation errors:", JSON.stringify(errors, null, 2))
+                            toast.error("Vui lòng kiểm tra lại các trường bắt buộc")
+                        })()
+                    }} size="sm" className="h-10 gap-2 bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 dark:text-white">
+                        <Save className="w-4 h-4" /> {isEditMode ? "Cập nhật" : "Lưu"}
                     </Button>
                 </div>
 
@@ -514,7 +554,7 @@ export default function ImportPage() {
                                 <CardHeader className="py-3 bg-muted/40 border-b">
                                     <CardTitle className="text-sm font-medium">Thông tin công văn nhập</CardTitle>
                                 </CardHeader>
-                                <CardContent className="grid grid-cols-2 gap-4 pt-4">
+                                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
                                     <FormField
                                         control={form.control}
                                         name="dispatchNumber"
@@ -558,7 +598,7 @@ export default function ImportPage() {
                                         control={form.control}
                                         name="documentType"
                                         render={({ field }) => (
-                                            <FormItem className="col-span-2">
+                                            <FormItem className="md:col-span-2">
                                                 <FormLabel>Loại chứng từ</FormLabel>
                                                 <FormControl>
                                                     <select
@@ -795,131 +835,214 @@ export default function ImportPage() {
                                     </Button>
                                 </CardHeader>
                                 <CardContent className="pt-4 space-y-2">
-                                    {fields.map((field, index) => (
-                                        <div key={field.id} className="flex gap-3 items-start p-3 border rounded-md bg-muted/20 hover:bg-muted/40 transition-colors">
-                                            <div className="w-8 pt-2 text-center text-sm text-muted-foreground font-medium">{index + 1}</div>
+                                    {fields.map((field, index) => {
+                                        const imageUrl = form.watch(`transformers.${index}.imageUrl`)
 
-                                            <FormField
-                                                control={form.control}
-                                                name={`transformers.${index}.serialNumber`}
-                                                render={({ field }) => (
-                                                    <FormItem className="flex-1">
-                                                        <FormControl>
-                                                            <Input placeholder="Số máy (Serial No)" {...field} />
-                                                        </FormControl>
-                                                        <FormMessage className="text-xs" />
-                                                    </FormItem>
-                                                )}
-                                            />
+                                        const handleImageDrop = async (e: React.DragEvent) => {
+                                            e.preventDefault()
+                                            const file = e.dataTransfer.files[0]
+                                            if (file && file.type.startsWith("image/")) {
+                                                const formData = new FormData()
+                                                formData.append("file", file)
+                                                const result = await uploadTransformerImage(formData)
+                                                if (result.success && result.url) {
+                                                    form.setValue(`transformers.${index}.imageUrl`, result.url)
+                                                    toast.success("Đã upload ảnh")
+                                                } else {
+                                                    toast.error(result.error || "Lỗi upload")
+                                                }
+                                            }
+                                        }
 
-                                            <FormField
-                                                control={form.control}
-                                                name={`transformers.${index}.capacity`}
-                                                render={({ field }) => (
-                                                    <FormItem className="w-32">
-                                                        <FormControl>
-                                                            <select
-                                                                className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                                                                value={field.value || ""}
-                                                                onChange={(e) => field.onChange(e.target.value)}
-                                                            >
-                                                                <option value="">Dung lượng</option>
-                                                                {["25kVA", "37.5kVA", "50kVA", "75kVA", "100kVA", "160kVA", "250kVA"].map((cap) => (
-                                                                    <option key={cap} value={cap}>{cap}</option>
-                                                                ))}
-                                                            </select>
-                                                        </FormControl>
-                                                        <FormMessage className="text-xs" />
-                                                    </FormItem>
-                                                )}
-                                            />
+                                        const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+                                            const file = e.target.files?.[0]
+                                            if (file && file.type.startsWith("image/")) {
+                                                const formData = new FormData()
+                                                formData.append("file", file)
+                                                const result = await uploadTransformerImage(formData)
+                                                if (result.success && result.url) {
+                                                    form.setValue(`transformers.${index}.imageUrl`, result.url)
+                                                    toast.success("Đã upload ảnh")
+                                                } else {
+                                                    toast.error(result.error || "Lỗi upload")
+                                                }
+                                            }
+                                            e.target.value = "" // reset input
+                                        }
 
-                                            <FormField
-                                                control={form.control}
-                                                name={`transformers.${index}.model`}
-                                                render={({ field }) => (
-                                                    <FormItem className="w-32">
-                                                        <FormControl>
-                                                            <select
-                                                                className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                                                                value={field.value || ""}
-                                                                onChange={(e) => field.onChange(e.target.value)}
-                                                            >
-                                                                <option value="">Loại/Hãng</option>
-                                                                <option value="1P">1P</option>
-                                                                <option value="3P">3P</option>
-                                                            </select>
-                                                        </FormControl>
-                                                        <FormMessage className="text-xs" />
-                                                    </FormItem>
-                                                )}
-                                            />
+                                        const handleImageClick = () => {
+                                            if (imageUrl) {
+                                                setPreviewImage(imageUrl)
+                                                setPreviewTtr(null)
+                                            }
+                                        }
 
-                                            <FormField
-                                                control={form.control}
-                                                name={`transformers.${index}.note`}
-                                                render={({ field }) => (
-                                                    <FormItem className="flex-1">
-                                                        <FormControl>
-                                                            <Input placeholder="Ghi chú" {...field} />
-                                                        </FormControl>
-                                                        <FormMessage className="text-xs" />
-                                                    </FormItem>
-                                                )}
-                                            />
+                                        return (
+                                            <div key={field.id} className="flex flex-col md:flex-row gap-2 md:gap-3 items-start p-3 border rounded-md bg-muted/20 hover:bg-muted/40 transition-colors">
+                                                {/* Drop zone / Thumbnail */}
+                                                <div className="relative">
+                                                    {/* File input - chỉ hiện khi chưa có ảnh */}
+                                                    {!imageUrl && (
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            onChange={handleFileSelect}
+                                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                                            title="Chọn ảnh từ thiết bị"
+                                                        />
+                                                    )}
+                                                    <div
+                                                        className={`w-14 h-14 md:w-16 md:h-16 border-2 border-dashed rounded-md flex items-center justify-center transition-all cursor-pointer ${imageUrl ? 'border-green-500 bg-green-50/50 dark:bg-green-900/20' : 'border-muted-foreground/30 hover:border-primary/50'
+                                                            }`}
+                                                        onDragOver={(e) => e.preventDefault()}
+                                                        onDrop={handleImageDrop}
+                                                        onClick={imageUrl ? handleImageClick : undefined}
+                                                        title={imageUrl ? "Click để xem ảnh lớn" : "Kéo thả hoặc click để chọn ảnh"}
+                                                    >
+                                                        {imageUrl ? (
+                                                            <img src={imageUrl} alt="MBA" className="w-full h-full object-cover rounded" />
+                                                        ) : (
+                                                            <Camera className="w-5 h-5 text-muted-foreground/50" />
+                                                        )}
+                                                    </div>
+                                                    {/* Nút đổi ảnh - chỉ hiện khi đã có ảnh */}
+                                                    {imageUrl && (
+                                                        <label className="absolute -bottom-1 -right-1 w-5 h-5 bg-primary rounded-full flex items-center justify-center cursor-pointer hover:bg-primary/80 transition-colors z-10" title="Đổi ảnh">
+                                                            <input
+                                                                type="file"
+                                                                accept="image/*"
+                                                                onChange={handleFileSelect}
+                                                                className="hidden"
+                                                            />
+                                                            <Camera className="w-3 h-3 text-primary-foreground" />
+                                                        </label>
+                                                    )}
+                                                </div>
 
-                                            {/* Kết quả thí nghiệm - chỉ hiển thị khi nhận CBM về */}
-                                            {isCbmReturn && (
+                                                <div className="w-8 pt-2 text-center text-sm text-muted-foreground font-medium hidden md:block">{index + 1}</div>
+
                                                 <FormField
                                                     control={form.control}
-                                                    name={`transformers.${index}.testResult`}
+                                                    name={`transformers.${index}.serialNumber`}
                                                     render={({ field }) => (
-                                                        <FormItem className="w-28">
+                                                        <FormItem className="flex-1">
+                                                            <FormControl>
+                                                                <Input placeholder="Số máy (Serial No)" {...field} />
+                                                            </FormControl>
+                                                            <FormMessage className="text-xs" />
+                                                        </FormItem>
+                                                    )}
+                                                />
+
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`transformers.${index}.capacity`}
+                                                    render={({ field }) => (
+                                                        <FormItem className="w-32">
                                                             <FormControl>
                                                                 <select
-                                                                    className={`flex h-9 w-full items-center justify-between rounded-md border px-3 py-2 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${field.value === "PASS"
-                                                                        ? "border-green-500 bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                                                                        : field.value === "FAIL"
-                                                                            ? "border-red-500 bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                                                                            : "border-input bg-transparent"
-                                                                        }`}
-                                                                    value={field.value || "PASS"}
-                                                                    onChange={(e) => {
-                                                                        const newValue = e.target.value || undefined
-                                                                        field.onChange(newValue)
-                                                                        // Tự động điền/xóa ghi chú khi thay đổi trạng thái
-                                                                        if (newValue === "FAIL") {
-                                                                            form.setValue(`transformers.${index}.note`, "CBM không đạt")
-                                                                        } else if (newValue === "PASS") {
-                                                                            const currentNote = form.getValues(`transformers.${index}.note`)
-                                                                            if (currentNote === "CBM không đạt") {
-                                                                                form.setValue(`transformers.${index}.note`, "")
-                                                                            }
-                                                                        }
-                                                                    }}
+                                                                    className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                                                    value={field.value || ""}
+                                                                    onChange={(e) => field.onChange(e.target.value)}
                                                                 >
-                                                                    <option value="PASS">✓ Đạt</option>
-                                                                    <option value="FAIL">✗ Không đạt</option>
+                                                                    <option value="">Dung lượng</option>
+                                                                    {["25kVA", "37.5kVA", "50kVA", "75kVA", "100kVA", "160kVA", "250kVA"].map((cap) => (
+                                                                        <option key={cap} value={cap}>{cap}</option>
+                                                                    ))}
                                                                 </select>
                                                             </FormControl>
                                                             <FormMessage className="text-xs" />
                                                         </FormItem>
                                                     )}
                                                 />
-                                            )}
 
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                                onClick={() => remove(index)}
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </Button>
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`transformers.${index}.model`}
+                                                    render={({ field }) => (
+                                                        <FormItem className="w-32">
+                                                            <FormControl>
+                                                                <select
+                                                                    className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                                                    value={field.value || ""}
+                                                                    onChange={(e) => field.onChange(e.target.value)}
+                                                                >
+                                                                    <option value="">Loại/Hãng</option>
+                                                                    <option value="1P">1P</option>
+                                                                    <option value="3P">3P</option>
+                                                                </select>
+                                                            </FormControl>
+                                                            <FormMessage className="text-xs" />
+                                                        </FormItem>
+                                                    )}
+                                                />
 
-                                        </div>
-                                    ))}
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`transformers.${index}.note`}
+                                                    render={({ field }) => (
+                                                        <FormItem className="flex-1">
+                                                            <FormControl>
+                                                                <Input placeholder="Ghi chú" {...field} />
+                                                            </FormControl>
+                                                            <FormMessage className="text-xs" />
+                                                        </FormItem>
+                                                    )}
+                                                />
+
+                                                {/* Kết quả thí nghiệm - chỉ hiển thị khi nhận CBM về */}
+                                                {isCbmReturn && (
+                                                    <FormField
+                                                        control={form.control}
+                                                        name={`transformers.${index}.testResult`}
+                                                        render={({ field }) => (
+                                                            <FormItem className="w-28">
+                                                                <FormControl>
+                                                                    <select
+                                                                        className={`flex h-9 w-full items-center justify-between rounded-md border px-3 py-2 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${field.value === "PASS"
+                                                                            ? "border-green-500 bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                                                            : field.value === "FAIL"
+                                                                                ? "border-red-500 bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                                                                : "border-input bg-transparent"
+                                                                            }`}
+                                                                        value={field.value || "PASS"}
+                                                                        onChange={(e) => {
+                                                                            const newValue = e.target.value || undefined
+                                                                            field.onChange(newValue)
+                                                                            // Tự động điền/xóa ghi chú khi thay đổi trạng thái
+                                                                            if (newValue === "FAIL") {
+                                                                                form.setValue(`transformers.${index}.note`, "CBM không đạt")
+                                                                            } else if (newValue === "PASS") {
+                                                                                const currentNote = form.getValues(`transformers.${index}.note`)
+                                                                                if (currentNote === "CBM không đạt") {
+                                                                                    form.setValue(`transformers.${index}.note`, "")
+                                                                                }
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        <option value="PASS">✓ Đạt</option>
+                                                                        <option value="FAIL">✗ Không đạt</option>
+                                                                    </select>
+                                                                </FormControl>
+                                                                <FormMessage className="text-xs" />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                )}
+
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="text-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                    onClick={() => remove(index)}
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </Button>
+
+                                            </div>
+                                        )
+                                    })}
 
                                     <Button
                                         type="button"

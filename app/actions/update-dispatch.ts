@@ -10,6 +10,8 @@ const transformerSchema = z.object({
     capacity: z.string().min(1, "Bắt buộc"),
     model: z.string().optional(),
     note: z.string().optional(),
+    testResult: z.enum(["PASS", "FAIL"]).nullish(), // Chấp nhận PASS, FAIL, null, undefined
+    imageUrl: z.string().optional(), // URL hình ảnh máy biến áp
 })
 
 const updateSchema = z.object({
@@ -31,7 +33,8 @@ const updateSchema = z.object({
 export async function updateDispatch(data: z.infer<typeof updateSchema>) {
     const result = updateSchema.safeParse(data)
     if (!result.success) {
-        return { success: false, error: "Dữ liệu không hợp lệ" }
+        console.error("Update dispatch validation error:", result.error.format())
+        return { success: false, error: "Dữ liệu không hợp lệ: " + result.error.issues.map((e: { message: string }) => e.message).join(", ") }
     }
 
     const { id, dispatchNumber, date, transformers, fileUrl, documentType, isCBM, linkedTtrIds, linkedCvNumber, linkedCvDate, sourceDispatchId, transactionDate } = result.data
@@ -63,6 +66,8 @@ export async function updateDispatch(data: z.infer<typeof updateSchema>) {
                 capacity: t.capacity,
                 model: t.model,
                 note: t.note,
+                testResult: t.testResult, // Kết quả thí nghiệm
+                imageUrl: t.imageUrl, // Lưu URL hình ảnh
             }))
         })
 

@@ -41,6 +41,7 @@ model Transformer {
   note         String?
   testResult   String?   // PASS | FAIL | null - Kết quả thí nghiệm CBM
   isProcessed  Boolean   @default(false) // Máy FAIL đã được xử lý (thêm vào Export khác)
+  imageUrl     String?   // URL hình ảnh của máy biến áp
   
   dispatchId   String
   dispatch     Dispatch  @relation(fields: [dispatchId], references: [id], onDelete: Cascade)

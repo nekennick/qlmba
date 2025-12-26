@@ -82,6 +82,7 @@ export async function getDashboardStats(range?: { from?: Date, to?: Date }) {
                 capacity: t.capacity,
                 model: t.model,
                 note: t.note,
+                imageUrl: t.imageUrl, // URL hình ảnh máy biến áp
                 dispatchNumber: t.dispatch.dispatchNumber,
                 date: t.dispatch.transactionDate || t.dispatch.date,
                 type: t.dispatch.type,

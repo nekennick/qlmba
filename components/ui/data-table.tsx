@@ -69,117 +69,120 @@ export function DataTable<TData, TValue>({
 
     return (
         <div className="space-y-4">
-            <div className="rounded-md border">
-                <Table>
-                    <TableHeader>
-                        {table.getHeaderGroups().map((headerGroup) => (
-                            <TableRow key={headerGroup.id}>
-                                {headerGroup.headers.map((header) => {
-                                    return (
-                                        <TableHead key={header.id}>
-                                            {header.isPlaceholder
-                                                ? null
-                                                : flexRender(
-                                                    header.column.columnDef.header,
-                                                    header.getContext()
-                                                )}
-                                        </TableHead>
-                                    )
-                                })}
-                            </TableRow>
-                        ))}
-                    </TableHeader>
-                    <TableBody>
-                        {table.getRowModel().rows?.length ? (
-                            (() => {
-                                // Tính toán màu nền và viền cho từng nhóm dispatchId
-                                const rows = table.getRowModel().rows
-                                let currentDispatchId = ""
-                                let groupIndex = 0
-                                let positionInGroup = 0
+            {/* Horizontal scroll wrapper for mobile */}
+            <div className="rounded-md border overflow-x-auto">
+                <div className="min-w-[700px]">
+                    <Table>
+                        <TableHeader>
+                            {table.getHeaderGroups().map((headerGroup) => (
+                                <TableRow key={headerGroup.id}>
+                                    {headerGroup.headers.map((header) => {
+                                        return (
+                                            <TableHead key={header.id}>
+                                                {header.isPlaceholder
+                                                    ? null
+                                                    : flexRender(
+                                                        header.column.columnDef.header,
+                                                        header.getContext()
+                                                    )}
+                                            </TableHead>
+                                        )
+                                    })}
+                                </TableRow>
+                            ))}
+                        </TableHeader>
+                        <TableBody>
+                            {table.getRowModel().rows?.length ? (
+                                (() => {
+                                    // Tính toán màu nền và viền cho từng nhóm dispatchId
+                                    const rows = table.getRowModel().rows
+                                    let currentDispatchId = ""
+                                    let groupIndex = 0
+                                    let positionInGroup = 0
 
-                                // Đếm số lượng trong mỗi nhóm trước
-                                const groupCounts: { [key: string]: number } = {}
-                                rows.forEach(row => {
-                                    const dispatchId = (row.original as any)?.dispatchId || ""
-                                    groupCounts[dispatchId] = (groupCounts[dispatchId] || 0) + 1
-                                })
+                                    // Đếm số lượng trong mỗi nhóm trước
+                                    const groupCounts: { [key: string]: number } = {}
+                                    rows.forEach(row => {
+                                        const dispatchId = (row.original as any)?.dispatchId || ""
+                                        groupCounts[dispatchId] = (groupCounts[dispatchId] || 0) + 1
+                                    })
 
-                                // Màu viền trái xen kẽ
-                                const borderColors = ["border-l-emerald-500", "border-l-blue-500"]
-                                const bgColors = ["bg-emerald-50/40 dark:bg-emerald-900/10", "bg-blue-50/40 dark:bg-blue-900/10"]
+                                    // Màu viền trái xen kẽ
+                                    const borderColors = ["border-l-emerald-500", "border-l-blue-500"]
+                                    const bgColors = ["bg-emerald-50/40 dark:bg-emerald-900/10", "bg-blue-50/40 dark:bg-blue-900/10"]
 
-                                return rows.map((row, index) => {
-                                    const rowData = row.original as any
-                                    const dispatchId = rowData?.dispatchId || ""
+                                    return rows.map((row, index) => {
+                                        const rowData = row.original as any
+                                        const dispatchId = rowData?.dispatchId || ""
 
-                                    // Khi gặp dispatchId mới, reset position và tăng groupIndex
-                                    if (dispatchId !== currentDispatchId) {
-                                        currentDispatchId = dispatchId
-                                        groupIndex++
-                                        positionInGroup = 1
-                                    } else {
-                                        positionInGroup++
-                                    }
-
-                                    const totalInGroup = groupCounts[dispatchId] || 1
-                                    const bgColor = totalInGroup > 1 ? bgColors[groupIndex % 2] : ""
-
-                                    // Kiểm tra xem row tiếp theo có cùng dispatchId không
-                                    const nextRow = rows[index + 1]
-                                    const nextDispatchId = (nextRow?.original as any)?.dispatchId || ""
-                                    const isLastInGroup = nextDispatchId !== dispatchId
-                                    const isFirstInGroup = positionInGroup === 1
-
-                                        // Truyền thông tin vị trí cho cell
-                                        ; (rowData as any)._groupInfo = {
-                                            position: positionInGroup,
-                                            total: totalInGroup,
-                                            isFirst: isFirstInGroup,
-                                            groupIndex: groupIndex
+                                        // Khi gặp dispatchId mới, reset position và tăng groupIndex
+                                        if (dispatchId !== currentDispatchId) {
+                                            currentDispatchId = dispatchId
+                                            groupIndex++
+                                            positionInGroup = 1
+                                        } else {
+                                            positionInGroup++
                                         }
 
-                                    return (
-                                        <TableRow
-                                            key={row.id}
-                                            data-state={row.getIsSelected() && "selected"}
-                                            className={`${bgColor} ${isLastInGroup && totalInGroup > 1 ? "border-b-2 border-b-border" : ""}`}
-                                        >
-                                            {row.getVisibleCells().map((cell) => (
-                                                <TableCell key={cell.id}>
-                                                    {flexRender(
-                                                        cell.column.columnDef.cell,
-                                                        cell.getContext()
-                                                    )}
-                                                </TableCell>
-                                            ))}
-                                        </TableRow>
-                                    )
-                                })
-                            })()
-                        ) : (
-                            <TableRow>
-                                <TableCell
-                                    colSpan={columns.length}
-                                    className="h-24 text-center"
-                                >
-                                    Không có dữ liệu.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
+                                        const totalInGroup = groupCounts[dispatchId] || 1
+                                        const bgColor = totalInGroup > 1 ? bgColors[groupIndex % 2] : ""
+
+                                        // Kiểm tra xem row tiếp theo có cùng dispatchId không
+                                        const nextRow = rows[index + 1]
+                                        const nextDispatchId = (nextRow?.original as any)?.dispatchId || ""
+                                        const isLastInGroup = nextDispatchId !== dispatchId
+                                        const isFirstInGroup = positionInGroup === 1
+
+                                            // Truyền thông tin vị trí cho cell
+                                            ; (rowData as any)._groupInfo = {
+                                                position: positionInGroup,
+                                                total: totalInGroup,
+                                                isFirst: isFirstInGroup,
+                                                groupIndex: groupIndex
+                                            }
+
+                                        return (
+                                            <TableRow
+                                                key={row.id}
+                                                data-state={row.getIsSelected() && "selected"}
+                                                className={`${bgColor} ${isLastInGroup && totalInGroup > 1 ? "border-b-2 border-b-border" : ""}`}
+                                            >
+                                                {row.getVisibleCells().map((cell) => (
+                                                    <TableCell key={cell.id}>
+                                                        {flexRender(
+                                                            cell.column.columnDef.cell,
+                                                            cell.getContext()
+                                                        )}
+                                                    </TableCell>
+                                                ))}
+                                            </TableRow>
+                                        )
+                                    })
+                                })()
+                            ) : (
+                                <TableRow>
+                                    <TableCell
+                                        colSpan={columns.length}
+                                        className="h-24 text-center"
+                                    >
+                                        Không có dữ liệu.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
             </div>
-            <div className="flex items-center justify-end space-x-2 py-4">
-                <div className="flex items-center space-x-2">
-                    <p className="text-sm font-medium">Số dòng mỗi trang</p>
+            <div className="flex items-center justify-between md:justify-end gap-1 md:space-x-2 py-2 md:py-4 border-t px-1 md:px-0">
+                <div className="flex items-center gap-1 md:space-x-2">
+                    <p className="text-[10px] md:text-sm font-medium text-muted-foreground hidden xs:block">Dòng</p>
                     <Select
                         value={`${table.getState().pagination.pageSize}`}
                         onValueChange={(value) => {
                             table.setPageSize(Number(value))
                         }}
                     >
-                        <SelectTrigger className="h-8 w-[70px]">
+                        <SelectTrigger className="h-7 md:h-8 w-[70px] text-xs md:text-sm">
                             <SelectValue placeholder={table.getState().pagination.pageSize} />
                         </SelectTrigger>
                         <SelectContent side="top">
@@ -190,27 +193,32 @@ export function DataTable<TData, TValue>({
                             ))}
                         </SelectContent>
                     </Select>
+                    <span className="text-[10px] md:text-sm text-muted-foreground whitespace-nowrap">
+                        / {table.getFilteredRowModel().rows.length} dòng
+                    </span>
                 </div>
-                <div className="flex-1 text-sm text-muted-foreground mr-4">
-                    {table.getFilteredRowModel().rows.length} kết quả.
+
+                <div className="flex items-center gap-1">
+                    {extraToolbarActions && extraToolbarActions(table)}
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 md:h-8 w-7 md:w-8 p-0"
+                        onClick={() => table.previousPage()}
+                        disabled={!table.getCanPreviousPage()}
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 md:h-8 w-7 md:w-8 p-0"
+                        onClick={() => table.nextPage()}
+                        disabled={!table.getCanNextPage()}
+                    >
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
                 </div>
-                {extraToolbarActions && extraToolbarActions(table)}
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => table.previousPage()}
-                    disabled={!table.getCanPreviousPage()}
-                >
-                    <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => table.nextPage()}
-                    disabled={!table.getCanNextPage()}
-                >
-                    <ChevronRight className="h-4 w-4" />
-                </Button>
             </div>
         </div>
     )

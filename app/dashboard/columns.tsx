@@ -1,7 +1,7 @@
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown, MoreHorizontal, Trash2, Pencil, Link2 } from "lucide-react"
+import { ArrowUpDown, MoreHorizontal, Trash2, Pencil, Link2, Eye } from "lucide-react"
 import React from "react"
 
 import { DataTableFacetedFilter } from "@/components/ui/data-table-faceted-filter"
@@ -25,6 +25,7 @@ export type Transformer = {
     type: "IMPORT" | "EXPORT"
     documentType?: "CV" | "TTr"
     isCBM?: boolean
+    imageUrl?: string | null // URL hình ảnh máy biến áp
     linkedCv?: {
         dispatchNumber: string
     } | null
@@ -343,3 +344,33 @@ export const columns: ColumnDef<Transformer>[] = [
         },
     },
 ]
+
+// Function để tạo columns với callback xem ảnh
+export function getColumnsWithImagePreview(onViewImage: (imageUrl: string) => void): ColumnDef<Transformer>[] {
+    // Chèn cột xem ảnh trước cột actions
+    const imageColumn: ColumnDef<Transformer> = {
+        id: "image",
+        header: "Ảnh",
+        cell: ({ row }) => {
+            const imageUrl = row.original.imageUrl
+            if (!imageUrl) return <div className="w-8" />
+
+            return (
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                    onClick={() => onViewImage(imageUrl)}
+                    title="Xem ảnh"
+                >
+                    <Eye className="h-4 w-4" />
+                </Button>
+            )
+        },
+    }
+
+    // Chèn imageColumn trước cột actions (cột cuối)
+    const allColumns = [...columns]
+    allColumns.splice(allColumns.length - 1, 0, imageColumn)
+    return allColumns
+}

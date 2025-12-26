@@ -12,6 +12,7 @@ const transformerSchema = z.object({
     capacity: z.string().min(1, "Bắt buộc"),
     model: z.string().optional(),
     note: z.string().optional(),
+    imageUrl: z.string().optional(), // URL hình ảnh máy biến áp
 })
 
 const formSchema = z.object({
@@ -54,6 +55,7 @@ export async function createExportDispatch(data: z.infer<typeof formSchema>) {
                         capacity: t.capacity,
                         model: t.model,
                         note: t.note,
+                        imageUrl: t.imageUrl, // Lưu URL hình ảnh
                     }))
                 }
             }
