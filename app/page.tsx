@@ -7,7 +7,7 @@ import { useEffect, useState, useMemo } from "react"
 import { getDashboardStats, getUnreturnedTransformers } from "@/app/actions/dashboard"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowUpCircle, ArrowDownCircle, Package, CalendarIcon, Printer } from "lucide-react"
+import { ArrowUpCircle, ArrowDownCircle, Package, CalendarIcon, Printer, LogOut, User, Settings } from "lucide-react"
 import { DataTable } from "@/components/ui/data-table"
 import { columns, Transformer, getColumnsWithImagePreview } from "@/app/dashboard/columns"
 import { NotificationBell } from "@/components/dashboard/notification-bell"
@@ -16,6 +16,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { vi } from "date-fns/locale"
@@ -24,19 +32,18 @@ import { ModeToggle } from "@/components/mode-toggle"
 import { Calendar } from "@/components/ui/calendar"
 import { ReportToolbar } from "@/components/dashboard/report-toolbar"
 import { toast } from "sonner"
-import { UnitSwitcher } from "@/components/dashboard/unit-switcher"
-import { useUnitStore } from "@/lib/store/unit-store"
-import { UNITS } from "@/lib/constants"
+
+import { useSession, signOut } from "next-auth/react"
 // ...
 
 export default function DashboardPage() {
+  const { data: session } = useSession()
   const [stats, setStats] = useState<any>({ totalImported: 0, totalExported: 0, unreturned: 0 })
   const [transformers, setTransformers] = useState<Transformer[]>([])
   const [allTransformers, setAllTransformers] = useState<Transformer[]>([])
   const [loading, setLoading] = useState(true)
   const [date, setDate] = useState<DateRange | undefined>()
   const [filterMode, setFilterMode] = useState<'all' | 'import' | 'export' | 'unreturned' | null>(null)
-  const { selectedUnit } = useUnitStore()
   const [isMobile, setIsMobile] = useState(false)
   const [previewImage, setPreviewImage] = useState<string | null>(null) // Preview ảnh máy biến áp
 
@@ -84,7 +91,7 @@ export default function DashboardPage() {
 
     // Use the 'from' date for the daily report
     const reportDate = date.from
-    const unitLabel = UNITS.find(u => u.value === selectedUnit)?.label || ""
+    const unitLabel = session?.user?.teamName || "Admin"
     const url = `/report?date=${reportDate.toISOString()}&unit=${encodeURIComponent(unitLabel)}`
     window.open(url, '_blank')
   }
@@ -127,7 +134,6 @@ export default function DashboardPage() {
           <h1 className="text-sm font-bold text-foreground sm:hidden">QL MBA</h1>
         </div>
         <div className="flex items-center gap-2 md:gap-3 flex-wrap md:flex-nowrap">
-          <UnitSwitcher />
           <ModeToggle />
           <NotificationBell unreturnedCount={stats.unreturned} />
           {/* Buttons Nhận/Trả - Ẩn trên mobile (dùng bottom bar thay thế) */}
@@ -143,6 +149,40 @@ export default function DashboardPage() {
               Trả MBA
             </Link>
           </Button>
+
+          {/* User Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-10 gap-2">
+                <User className="h-4 w-4" />
+                <span className="hidden md:inline">{session?.user?.name || session?.user?.username || "User"}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium">{session?.user?.name}</p>
+                  <p className="text-xs text-muted-foreground">{session?.user?.teamName || "Admin"}</p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {session?.user?.role === "ADMIN" && (
+                <DropdownMenuItem asChild>
+                  <Link href="/admin" className="cursor-pointer">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Quản trị
+                  </Link>
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem
+                onClick={() => signOut({ callbackUrl: "/login" })}
+                className="text-red-600 cursor-pointer"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Đăng xuất
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 

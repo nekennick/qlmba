@@ -1,13 +1,21 @@
 "use server"
 
 import { db } from "@/lib/db"
+import { getTeamId } from "@/lib/auth-utils"
 
 export async function getDashboardStats(range?: { from?: Date, to?: Date }) {
     try {
+        const teamId = await getTeamId()
+
+        // Tạo điều kiện lọc theo team
+        const teamFilter = teamId ? { dispatch: { teamId } } : {}
+        const dispatchTeamFilter = teamId ? { teamId } : {}
+
         const importCount = await db.transformer.count({
             where: {
                 dispatch: {
-                    type: "IMPORT"
+                    type: "IMPORT",
+                    ...dispatchTeamFilter
                 }
             }
         })
@@ -15,13 +23,14 @@ export async function getDashboardStats(range?: { from?: Date, to?: Date }) {
         const exportCount = await db.transformer.count({
             where: {
                 dispatch: {
-                    type: "EXPORT"
+                    type: "EXPORT",
+                    ...dispatchTeamFilter
                 }
             }
         })
 
         // Filter Recent Transactions
-        const whereClause: any = {}
+        const whereClause: any = { ...teamFilter }
         if (range?.from || range?.to) {
             const dateFilter: any = {}
             if (range.from) {
@@ -36,6 +45,7 @@ export async function getDashboardStats(range?: { from?: Date, to?: Date }) {
             }
 
             whereClause.dispatch = {
+                ...dispatchTeamFilter,
                 OR: [
                     { transactionDate: dateFilter },
                     { transactionDate: null, date: dateFilter }
@@ -110,6 +120,9 @@ export async function getDashboardStats(range?: { from?: Date, to?: Date }) {
 // CBM xử lý riêng theo relation
 export async function getUnreturnedTransformers() {
     try {
+        const teamId = await getTeamId()
+        const teamFilter = teamId ? { teamId } : {}
+
         const result: any[] = []
 
         // === PHẦN 1: CV/TTr thường (không phải CBM) - xét theo CV ===
@@ -118,7 +131,8 @@ export async function getUnreturnedTransformers() {
         const allImports = await db.dispatch.findMany({
             where: {
                 type: "IMPORT",
-                isCBM: false
+                isCBM: false,
+                ...teamFilter
             },
             include: {
                 transformers: true,
@@ -215,6 +229,7 @@ export async function getUnreturnedTransformers() {
                 type: "EXPORT",
                 isCBM: false,
                 sourceDispatchId: null,
+                ...teamFilter,
                 // Loại trừ TTr đã có CV liên kết
                 OR: [
                     { documentType: "CV" },
@@ -249,7 +264,8 @@ export async function getUnreturnedTransformers() {
         const cbmExports = await db.dispatch.findMany({
             where: {
                 type: "EXPORT",
-                isCBM: true
+                isCBM: true,
+                ...teamFilter
             },
             include: {
                 transformers: true,

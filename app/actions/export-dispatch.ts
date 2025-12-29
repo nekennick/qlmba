@@ -3,6 +3,7 @@
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
+import { requireAuth } from "@/lib/auth-utils"
 
 // Initialize Prisma Client if not already done in lib/db.ts
 // I will create lib/db.ts next.
@@ -36,8 +37,17 @@ export async function createExportDispatch(data: z.infer<typeof formSchema>) {
     const { dispatchNumber, date, documentType, transformers, sourceDispatchId, transactionDate, isCBM } = result.data
 
     try {
-        // Save to DB
-        // Note: In real app, we would handle file upload url here too
+        // Lấy user từ session
+        const sessionUser = await requireAuth()
+
+        // Lấy teamId từ database để đảm bảo chính xác
+        const dbUser = await db.user.findUnique({
+            where: { id: sessionUser.id },
+            select: { teamId: true, role: true }
+        })
+
+        const teamId = dbUser?.role === "ADMIN" ? null : dbUser?.teamId
+        console.log("[createExportDispatch] User:", sessionUser.id, "TeamId:", teamId)
 
         await db.dispatch.create({
             data: {
@@ -49,6 +59,7 @@ export async function createExportDispatch(data: z.infer<typeof formSchema>) {
                 isCBM: isCBM || false,
                 sourceDispatchId: result.data.sourceDispatchId,
                 fileUrl: "", // TODO: Handle file upload
+                teamId: teamId || undefined, // Gán teamId
                 transformers: {
                     create: transformers.map(t => ({
                         serialNumber: t.serialNumber,

@@ -7,6 +7,32 @@ datasource db {
   url      = "file:./dev.db"
 }
 
+model Team {
+  id        String   @id @default(uuid())
+  name      String   // Tên đội (VD: "Đội QLVH Lưới điện 1")
+  code      String   @unique // Mã đội ngắn (VD: "DOI1")
+  
+  users       User[]
+  dispatches  Dispatch[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String   // Hashed password
+  name      String   // Tên hiển thị
+  role      String   @default("USER") // ADMIN | USER
+  
+  teamId    String?
+  team      Team?    @relation(fields: [teamId], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Dispatch {
   id             String        @id @default(uuid())
   dispatchNumber String?
@@ -28,6 +54,10 @@ model Dispatch {
   exportedDispatches Dispatch[] @relation("SourceToExport")
   sourceDispatch     Dispatch?  @relation("SourceToExport", fields: [sourceDispatchId], references: [id])
   sourceDispatchId   String?
+  
+  // Team relation
+  teamId         String?
+  team           Team?         @relation(fields: [teamId], references: [id])
 
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt

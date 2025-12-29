@@ -1,6 +1,7 @@
 "use server"
 
 import { db } from "@/lib/db"
+import { getTeamId } from "@/lib/auth-utils"
 
 // Helper: Tạo capacity map từ danh sách transformers
 function createCapacityMap(transformers: { capacity: string | null }[]): Record<string, number> {
@@ -29,10 +30,13 @@ function isCapacityMapEqual(map1: Record<string, number>, map2: Record<string, n
 // CV hoàn thành khi đã trả đủ số máy với cùng dung lượng
 export async function getImportDispatches() {
     try {
+        const teamId = await getTeamId()
+
         const dispatches = await db.dispatch.findMany({
             where: {
                 type: "IMPORT",
                 documentType: "CV", // Chỉ lấy CV, không lấy TTr
+                ...(teamId && { teamId }), // Lọc theo team nếu không phải admin
             },
             orderBy: {
                 date: 'desc'

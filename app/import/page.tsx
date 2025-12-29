@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/select"
 import { useRouter, useSearchParams } from "next/navigation"
 import { UNITS, CV_SUFFIX } from "@/lib/constants"
-import { useUnitStore } from "@/lib/store/unit-store"
+import { useSession } from "next-auth/react"
 
 const transformerSchema = z.object({
     serialNumber: z.string().min(1, "Bắt buộc"),
@@ -63,6 +63,15 @@ const formSchema = z.object({
 })
 
 export default function ImportPage() {
+    return (
+        <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+            <ImportPageContent />
+        </Suspense>
+    )
+}
+
+function ImportPageContent() {
+    const { data: session } = useSession()
     const [pdfFile, setPdfFile] = useState<string | null>(null)
     const [selectedFile, setSelectedFile] = useState<File | null>(null)
     const [searchQuery, setSearchQuery] = useState("")
@@ -81,6 +90,9 @@ export default function ImportPage() {
     const [previewImage, setPreviewImage] = useState<string | null>(null) // Preview hình ảnh transformer
     const router = useRouter()
     const searchParams = useSearchParams()
+
+    // Lấy teamCode từ session để xác định hậu tố
+    const teamCode = session?.user?.teamCode
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -292,8 +304,7 @@ export default function ImportPage() {
             let dispatchNumberWithSuffix = values.dispatchNumber
             if (isCbmReturn) {
                 // CBM hậu tố theo đơn vị: /ĐỘI-KT
-                const currentUnit = useUnitStore.getState().selectedUnit
-                const selectedUnitObj = UNITS.find(u => u.value === currentUnit)
+                const selectedUnitObj = UNITS.find(u => u.value === teamCode)
                 if (selectedUnitObj && !dispatchNumberWithSuffix.includes(selectedUnitObj.cbmSuffix)) {
                     dispatchNumberWithSuffix = `${values.dispatchNumber}${selectedUnitObj.cbmSuffix}`
                 }
@@ -303,9 +314,8 @@ export default function ImportPage() {
                     dispatchNumberWithSuffix = `${values.dispatchNumber}${CV_SUFFIX}`
                 }
             } else if (values.documentType === "TTr") {
-                // TTr hậu tố theo đơn vị (Global setting)
-                const currentUnit = useUnitStore.getState().selectedUnit
-                const selectedUnitObj = UNITS.find(u => u.value === currentUnit)
+                // TTr hậu tố theo đơn vị từ session
+                const selectedUnitObj = UNITS.find(u => u.value === teamCode)
                 if (selectedUnitObj && !dispatchNumberWithSuffix.includes(selectedUnitObj.suffix)) {
                     dispatchNumberWithSuffix = `${values.dispatchNumber}${selectedUnitObj.suffix}`
                 }

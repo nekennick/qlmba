@@ -3,6 +3,7 @@
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
+import { getTeamId, requireAuth } from "@/lib/auth-utils"
 
 const transformerSchema = z.object({
     serialNumber: z.string().min(1),
@@ -29,11 +30,14 @@ export async function searchDispatches(query: string) {
     if (!query || query.length < 2) return []
 
     try {
+        const teamId = await getTeamId()
+
         const dispatches = await db.dispatch.findMany({
             where: {
                 dispatchNumber: {
                     contains: query,
                 },
+                ...(teamId && { teamId }),
             },
             include: {
                 transformers: true,
@@ -59,6 +63,18 @@ export async function createImportDispatch(data: z.infer<typeof formSchema>) {
     const { dispatchNumber, date, transformers, fileUrl, documentType, linkedTtrIds, transactionDate, sourceDispatchId, isCBM } = result.data
 
     try {
+        // Lấy user từ session
+        const sessionUser = await requireAuth()
+
+        // Lấy teamId từ database để đảm bảo chính xác
+        const dbUser = await db.user.findUnique({
+            where: { id: sessionUser.id },
+            select: { teamId: true, role: true }
+        })
+
+        const teamId = dbUser?.role === "ADMIN" ? null : dbUser?.teamId
+        console.log("[createImportDispatch] User:", sessionUser.id, "TeamId:", teamId)
+
         // Tạo dispatch mới
         const newDispatch = await db.dispatch.create({
             data: {
@@ -70,6 +86,7 @@ export async function createImportDispatch(data: z.infer<typeof formSchema>) {
                 isCBM: isCBM || !!sourceDispatchId, // Đánh dấu CBM nếu nhận CBM về
                 fileUrl: fileUrl || "",
                 sourceDispatchId: sourceDispatchId || undefined, // Liên kết với CBM nếu nhận CBM về
+                teamId: teamId || undefined, // Gán teamId nếu có
                 transformers: {
                     create: transformers.map(t => ({
                         serialNumber: t.serialNumber,

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -42,7 +42,7 @@ import {
 import { useRouter, useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { UNITS, CV_SUFFIX } from "@/lib/constants"
-import { useUnitStore } from "@/lib/store/unit-store"
+import { useSession } from "next-auth/react"
 
 const transformerSchema = z.object({
     serialNumber: z.string().min(1, "Bắt buộc"),
@@ -62,6 +62,15 @@ const formSchema = z.object({
 })
 
 export default function ExportPage() {
+    return (
+        <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+            <ExportPageContent />
+        </Suspense>
+    )
+}
+
+function ExportPageContent() {
+    const { data: session } = useSession()
     const [pdfFile, setPdfFile] = useState<string | null>(null)
     // List of existing import dispatches for reference
     const [importDispatches, setImportDispatches] = useState<any[]>([])
@@ -71,7 +80,9 @@ export default function ExportPage() {
     const [isCBM, setIsCBM] = useState(false)
     const [failedCbmMachines, setFailedCbmMachines] = useState<any[]>([]) // Máy CBM không đạt thí nghiệm
     const [previewImage, setPreviewImage] = useState<string | null>(null) // Preview ảnh máy biến áp
-    // Unit state is now managed globally by useUnitStore
+
+    // Lấy teamCode từ session để xác định hậu tố
+    const teamCode = session?.user?.teamCode
 
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -185,8 +196,7 @@ export default function ExportPage() {
             // Tự động thêm hậu tố vào số công văn (chỉ khi không chọn nguồn từ CV có sẵn)
             let dispatchNumberWithSuffix = values.dispatchNumber
             if (!selectedImportId) {
-                const currentUnit = useUnitStore.getState().selectedUnit
-                const selectedUnitObj = UNITS.find(u => u.value === currentUnit)
+                const selectedUnitObj = UNITS.find(u => u.value === teamCode)
 
                 if (isCBM) {
                     // CBM hậu tố theo đơn vị: /ĐTB-KT
@@ -199,7 +209,7 @@ export default function ExportPage() {
                         dispatchNumberWithSuffix = `${values.dispatchNumber}${CV_SUFFIX}`
                     }
                 } else if (values.documentType === "TTr") {
-                    // TTr hậu tố theo đơn vị (Global setting)
+                    // TTr hậu tố theo đơn vị từ session
                     if (selectedUnitObj && !dispatchNumberWithSuffix.includes(selectedUnitObj.suffix)) {
                         dispatchNumberWithSuffix = `${values.dispatchNumber}${selectedUnitObj.suffix}`
                     }
